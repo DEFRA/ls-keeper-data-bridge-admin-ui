@@ -1,0 +1,86 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      <form method="post" action="/cleanse-export/start">
+        {{ govukButton({
+          text: "Start new export"
+        }) }}
+      </form>
+
+      {% if exports.length %}
+        {% set rows = [] %}
+        {% for exp in exports %}
+          {% if exp.status === "Completed" %}
+            {% set statusTag = govukTag({ text: exp.status, classes: "govuk-tag--green" }) %}
+          {% elif exp.status === "Running" or exp.status === "Pending" %}
+            {% set statusTag = govukTag({ text: exp.status, classes: "govuk-tag--blue" }) %}
+          {% elif exp.status === "Failed" %}
+            {% set statusTag = govukTag({ text: exp.status, classes: "govuk-tag--red" }) %}
+          {% else %}
+            {% set statusTag = govukTag({ text: exp.status or "Unknown", classes: "govuk-tag--grey" }) %}
+          {% endif %}
+
+          {% set rows = (rows.push([
+            { html: '<a href="/cleanse-export/' + exp.id + '" class="govuk-link">' + (exp.id | truncate(12, true, "…")) + '</a>' },
+            { html: statusTag },
+            { text: exp.startedAtUtc | formatDate if exp.startedAtUtc else "—" },
+            { text: exp.completedAtUtc | formatDate if exp.completedAtUtc else "—" },
+            { text: exp.progressPercentage + "%" if exp.progressPercentage is defined else "—" },
+            { text: exp.totalRecords if exp.totalRecords is defined else "—" },
+            { text: exp.recordsExported if exp.recordsExported is defined else "—" },
+            { html: '<a href="' + exp.reportUrl + '" class="govuk-link" target="_blank" rel="noopener noreferrer">Download</a>' if exp.reportUrl else "—" }
+          ]), rows) %}
+        {% endfor %}
+
+        {{ govukTable({
+          head: [
+            { text: "Export ID" },
+            { text: "Status" },
+            { text: "Started" },
+            { text: "Completed" },
+            { text: "Progress" },
+            { text: "Total" },
+            { text: "Exported" },
+            { text: "Report" }
+          ],
+          rows: rows
+        }) }}
+
+        {% include "partials/pagination.njk" %}
+      {% else %}
+        {% if not apiError %}
+          <p class="govuk-body">No exports found.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

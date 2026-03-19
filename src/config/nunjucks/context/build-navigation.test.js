@@ -16,8 +16,43 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'About',
-        href: '/about'
+        text: 'Imports',
+        href: '/import'
+      },
+      {
+        current: false,
+        text: 'Cleanse',
+        href: '/cleanse'
+      },
+      {
+        current: false,
+        text: 'Cleanse Export',
+        href: '/cleanse-export'
+      },
+      {
+        current: false,
+        text: 'Issues',
+        href: '/issues'
+      },
+      {
+        current: false,
+        text: 'Query Data',
+        href: '/query'
+      },
+      {
+        current: false,
+        text: 'Holdings',
+        href: '/holdings'
+      },
+      {
+        current: false,
+        text: 'Throttle Policies',
+        href: '/throttle-policies'
+      },
+      {
+        current: false,
+        text: 'External Catalogue',
+        href: '/external-catalogue'
       }
     ])
   })
@@ -31,8 +66,43 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'About',
-        href: '/about'
+        text: 'Imports',
+        href: '/import'
+      },
+      {
+        current: false,
+        text: 'Cleanse',
+        href: '/cleanse'
+      },
+      {
+        current: false,
+        text: 'Cleanse Export',
+        href: '/cleanse-export'
+      },
+      {
+        current: false,
+        text: 'Issues',
+        href: '/issues'
+      },
+      {
+        current: false,
+        text: 'Query Data',
+        href: '/query'
+      },
+      {
+        current: false,
+        text: 'Holdings',
+        href: '/holdings'
+      },
+      {
+        current: false,
+        text: 'Throttle Policies',
+        href: '/throttle-policies'
+      },
+      {
+        current: false,
+        text: 'External Catalogue',
+        href: '/external-catalogue'
       }
     ])
   })

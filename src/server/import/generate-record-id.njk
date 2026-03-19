@@ -1,0 +1,81 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import/admin">Admin</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Generate ID
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if error %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: [{ text: error, href: "#keyParts" }]
+    }) }}
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <p class="govuk-body">Generates a URL-safe record ID from composite key parts using SHA256 hashing.</p>
+
+      <form method="post" action="/import/admin/generate-record-id">
+        {{ govukInput({
+          label: { text: "Key parts", classes: "govuk-label--s" },
+          hint: { text: "Enter comma-separated key parts (e.g. NORTH,F001)" },
+          id: "keyParts",
+          name: "keyParts",
+          value: keyPartsInput,
+          classes: "govuk-input--width-30",
+          errorMessage: { text: error } if error else undefined
+        }) }}
+        {{ govukButton({
+          text: "Generate record ID"
+        }) }}
+      </form>
+
+      {% if result %}
+        <h2 class="govuk-heading-m">Result</h2>
+        {{ govukSummaryList({
+          rows: [
+            {
+              key: { text: "Record ID" },
+              value: { html: '<code>' + result.recordId + '</code>' }
+            },
+            {
+              key: { text: "Key parts" },
+              value: { text: result.keyParts | join(", ") if result.keyParts else "—" }
+            },
+            {
+              key: { text: "Generated at" },
+              value: { text: result.timestamp | formatDate if result.timestamp else "—" }
+            }
+          ]
+        }) }}
+      {% endif %}
+
+    </div>
+  </div>
+{% endblock %}

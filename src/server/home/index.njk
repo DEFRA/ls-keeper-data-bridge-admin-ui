@@ -1,17 +1,63 @@
 {% extends 'layouts/page.njk' %}
 
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+
 {% block content %}
   {{ appHeading({
     text: heading,
-    caption: "ls-keeper-data-bridge-admin-ui"
+    caption: "Administration Dashboard"
   }) }}
 
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-full">
       <div class="govuk-body" data-testid="app-page-body">
-        <p></p>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-!-margin-bottom-6">
+              <h2 class="govuk-heading-m">
+                <a href="/import" class="govuk-link govuk-link--no-visited-state">Imports</a>
+              </h2>
+              <p class="govuk-body">View import history, start new imports, and inspect file processing reports.</p>
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-!-margin-bottom-6">
+              <h2 class="govuk-heading-m">
+                <a href="/cleanse" class="govuk-link govuk-link--no-visited-state">Cleanse Analysis</a>
+              </h2>
+              <p class="govuk-body">Run data quality analysis, view previous cleanse operations and reports.</p>
+            </div>
+          </div>
+        </div>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-!-margin-bottom-6">
+              <h2 class="govuk-heading-m">
+                <a href="/issues" class="govuk-link govuk-link--no-visited-state">Issues</a>
+              </h2>
+              <p class="govuk-body">Browse, filter and manage data quality issues. Assign, ignore and track resolution.</p>
+            </div>
+          </div>
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-!-margin-bottom-6">
+              <h2 class="govuk-heading-m">
+                <a href="/query" class="govuk-link govuk-link--no-visited-state">Query Data</a>
+              </h2>
+              <p class="govuk-body">Query MongoDB collections using OData-style parameters.</p>
+            </div>
+          </div>
+        </div>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            <div class="govuk-!-margin-bottom-6">
+              <h2 class="govuk-heading-m">
+                <a href="/throttle-policies" class="govuk-link govuk-link--no-visited-state">Throttle Policies</a>
+              </h2>
+              <p class="govuk-body">Manage throttle policies that control batch sizes and delays for background pipelines.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
 {% endblock %}

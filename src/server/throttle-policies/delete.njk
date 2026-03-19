@@ -1,0 +1,34 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {{ govukWarningText({
+    text: 'You are about to delete the throttle policy "' + policy.name + '" (' + policy.slug + '). This action cannot be undone.',
+    iconFallbackText: "Warning"
+  }) }}
+
+  {% if policy.isActive %}
+    <div class="govuk-inset-text">
+      This policy is currently <strong>active</strong>. You must deactivate it before it can be deleted.
+    </div>
+    <div class="govuk-button-group">
+      <a href="/throttle-policies" class="govuk-link">Back to policies</a>
+    </div>
+  {% else %}
+    <form method="post">
+      <div class="govuk-button-group">
+        {{ govukButton({
+          text: "Delete this policy",
+          classes: "govuk-button--warning"
+        }) }}
+        <a href="/throttle-policies" class="govuk-link">Cancel</a>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}

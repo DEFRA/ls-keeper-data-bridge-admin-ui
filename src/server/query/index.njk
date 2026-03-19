@@ -1,0 +1,105 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/textarea/macro.njk" import govukTextarea %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block content %}
+  {% if error %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: [
+        {
+          text: error,
+          href: "#collectionName"
+        }
+      ]
+    }) }}
+  {% endif %}
+
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <p class="govuk-body">
+    Query any MongoDB collection using OData-style parameters.
+  </p>
+
+  <form method="post" action="/query" novalidate>
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        {{ govukInput({
+          label: {
+            text: "Collection name",
+            classes: "govuk-label--m"
+          },
+          id: "collectionName",
+          name: "collectionName",
+          value: formValues.collectionName if formValues else "",
+          errorMessage: { text: error } if error and not formValues.collectionName else undefined,
+          hint: {
+            text: "The name of the MongoDB collection to query"
+          }
+        }) }}
+
+        {{ govukInput({
+          label: { text: "$filter" },
+          id: "$filter",
+          name: "$filter",
+          value: formValues["$filter"] if formValues else "",
+          hint: {
+            text: "OData filter expression, e.g. status eq 'Active'"
+          }
+        }) }}
+
+        {{ govukInput({
+          label: { text: "$orderby" },
+          id: "$orderby",
+          name: "$orderby",
+          value: formValues["$orderby"] if formValues else "",
+          hint: {
+            text: "Sort order, e.g. createdAtUtc desc"
+          }
+        }) }}
+
+        {{ govukInput({
+          label: { text: "$select" },
+          id: "$select",
+          name: "$select",
+          value: formValues["$select"] if formValues else "",
+          hint: {
+            text: "Comma-separated list of fields to return"
+          }
+        }) }}
+
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-one-half">
+            {{ govukInput({
+              label: { text: "$skip" },
+              id: "$skip",
+              name: "$skip",
+              value: formValues["$skip"] if formValues else "0",
+              classes: "govuk-input--width-5",
+              inputmode: "numeric"
+            }) }}
+          </div>
+          <div class="govuk-grid-column-one-half">
+            {{ govukInput({
+              label: { text: "$top" },
+              id: "$top",
+              name: "$top",
+              value: formValues["$top"] if formValues else "20",
+              classes: "govuk-input--width-5",
+              inputmode: "numeric"
+            }) }}
+          </div>
+        </div>
+
+        {{ govukButton({
+          text: "Run query"
+        }) }}
+      </div>
+    </div>
+  </form>
+{% endblock %}

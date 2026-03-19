@@ -1,0 +1,164 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Admin
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <h2 class="govuk-heading-m">Tools</h2>
+      {{ govukButton({
+        text: "Generate record ID",
+        href: "/import/admin/generate-record-id",
+        classes: "govuk-button--secondary"
+      }) }}
+
+      <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">
+            Danger zone — Data collections
+          </span>
+        </summary>
+        <div class="govuk-details__text">
+          {{ govukWarningText({
+            text: "These actions permanently delete data and cannot be undone.",
+            iconFallbackText: "Warning"
+          }) }}
+
+          <h3 class="govuk-heading-s">Delete a specific collection</h3>
+          <form method="post" action="/import/admin/delete-collection">
+            {{ govukInput({
+              label: { text: "Collection name" },
+              hint: { text: "Must be defined in DataSetDefinitions" },
+              id: "collectionName",
+              name: "collectionName",
+              classes: "govuk-input--width-20"
+            }) }}
+            {{ govukButton({
+              text: "Delete collection",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+
+          <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+
+          <h3 class="govuk-heading-s">Delete all collections</h3>
+          <p class="govuk-body">Deletes all MongoDB collections defined in DataSetDefinitions.</p>
+          <form method="post" action="/import/admin/delete-all-collections">
+            {{ govukButton({
+              text: "Delete all collections",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+        </div>
+      </details>
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">
+            Danger zone — Reporting collections
+          </span>
+        </summary>
+        <div class="govuk-details__text">
+          {{ govukWarningText({
+            text: "These actions permanently delete reporting/lineage data and cannot be undone.",
+            iconFallbackText: "Warning"
+          }) }}
+
+          <h3 class="govuk-heading-s">Delete a specific reporting collection</h3>
+          <form method="post" action="/import/admin/delete-reporting-collection">
+            {{ govukInput({
+              label: { text: "Reporting collection name" },
+              hint: { text: "Valid: import_reports, import_files, record_lineage, record_lineage_events" },
+              id: "reportingCollectionName",
+              name: "collectionName",
+              classes: "govuk-input--width-20"
+            }) }}
+            {{ govukButton({
+              text: "Delete reporting collection",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+
+          <hr class="govuk-section-break govuk-section-break--m govuk-section-break--visible">
+
+          <h3 class="govuk-heading-s">Delete all reporting collections</h3>
+          <p class="govuk-body">Deletes all reporting/lineage collections (import_reports, import_files, record_lineage, record_lineage_events).</p>
+          <form method="post" action="/import/admin/delete-all-reporting-collections">
+            {{ govukButton({
+              text: "Delete all reporting collections",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+        </div>
+      </details>
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">
+            Danger zone — Internal storage
+          </span>
+        </summary>
+        <div class="govuk-details__text">
+          {{ govukWarningText({
+            text: "This action deletes all objects from internal S3 storage and cannot be undone.",
+            iconFallbackText: "Warning"
+          }) }}
+
+          <form method="post" action="/import/admin/clear-internal-storage">
+            {{ govukRadios({
+              name: "sourceType",
+              classes: "govuk-radios--inline",
+              fieldset: {
+                legend: { text: "Source type", classes: "govuk-fieldset__legend--s" }
+              },
+              items: [
+                { value: "internal", text: "Internal", checked: true },
+                { value: "external", text: "External" }
+              ]
+            }) }}
+            {{ govukButton({
+              text: "Clear internal storage",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+        </div>
+      </details>
+
+    </div>
+  </div>
+{% endblock %}

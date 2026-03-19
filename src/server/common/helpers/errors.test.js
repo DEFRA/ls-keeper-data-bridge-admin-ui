@@ -23,7 +23,7 @@ describe('#errors', () => {
     })
 
     expect(result).toEqual(
-      expect.stringContaining('Page not found | ls-keeper-data-bridge-admin-ui')
+      expect.stringContaining('Page not found | Keeper Data Bridge Admin')
     )
     expect(statusCode).toBe(statusCodes.notFound)
   })

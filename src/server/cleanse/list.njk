@@ -1,0 +1,128 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      <h2 class="govuk-heading-m">Actions</h2>
+      <div class="govuk-button-group">
+        <form method="post" action="/cleanse/start-analysis" class="govuk-!-display-inline">
+          {{ govukButton({
+            text: "Start analysis"
+          }) }}
+        </form>
+        <form method="post" action="/cleanse/test-notification" class="govuk-!-display-inline">
+          {{ govukButton({
+            text: "Send test notification",
+            classes: "govuk-button--secondary"
+          }) }}
+        </form>
+      </div>
+
+      <details class="govuk-details">
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">
+            Danger zone
+          </span>
+        </summary>
+        <div class="govuk-details__text">
+          {{ govukWarningText({
+            text: "These actions permanently delete data and cannot be undone.",
+            iconFallbackText: "Warning"
+          }) }}
+          <div class="govuk-button-group">
+            <form method="post" action="/cleanse/delete-data">
+              {{ govukButton({
+                text: "Delete cleanse data",
+                classes: "govuk-button--warning"
+              }) }}
+            </form>
+            <form method="post" action="/cleanse/delete-metadata">
+              {{ govukButton({
+                text: "Delete cleanse metadata",
+                classes: "govuk-button--warning"
+              }) }}
+            </form>
+          </div>
+        </div>
+      </details>
+
+      <h2 class="govuk-heading-m">Analysis runs</h2>
+
+      {% if runs.length %}
+        {% set rows = [] %}
+        {% for run in runs %}
+          {% if run.status === "Completed" %}
+            {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--green" }) %}
+          {% elif run.status === "Running" %}
+            {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--blue" }) %}
+          {% elif run.status === "Failed" %}
+            {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--red" }) %}
+          {% elif run.status === "Cancelled" %}
+            {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--orange" }) %}
+          {% else %}
+            {% set statusTag = govukTag({ text: run.status or "Unknown", classes: "govuk-tag--grey" }) %}
+          {% endif %}
+
+          {% set rows = (rows.push([
+            { html: '<a href="/cleanse/run/' + run.id + '" class="govuk-link">' + (run.id | truncate(12, true, "…")) + '</a>' },
+            { html: statusTag },
+            { text: run.startedAtUtc | formatDate if run.startedAtUtc else "—" },
+            { text: run.completedAtUtc | formatDate if run.completedAtUtc else "—" },
+            { text: run.recordsAnalyzed },
+            { text: run.issuesFound },
+            { text: run.issuesResolved },
+            { text: run.progressPercentage + "%" if run.progressPercentage is defined else "—" }
+          ]), rows) %}
+        {% endfor %}
+
+        {{ govukTable({
+          head: [
+            { text: "Run ID" },
+            { text: "Status" },
+            { text: "Started" },
+            { text: "Completed" },
+            { text: "Analysed" },
+            { text: "Found" },
+            { text: "Resolved" },
+            { text: "Progress" }
+          ],
+          rows: rows
+        }) }}
+
+        {% include "partials/pagination.njk" %}
+      {% else %}
+        {% if not apiError %}
+          <p class="govuk-body">No analysis runs found.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { config } from '../../config.js'
 import { buildNavigation } from './build-navigation.js'
 import { createLogger } from '../../../server/common/helpers/logging/logger.js'
+import { getAuth } from '../../../server/auth/auth.js'
 
 const logger = createLogger()
 const assetPath = config.get('assetPath')
@@ -23,12 +24,15 @@ export function context(request) {
     }
   }
 
+  const auth = getAuth(request)
+
   return {
     assetPath: `${assetPath}/assets`,
-    serviceName: config.get('serviceName'),
+    serviceName: 'Keeper Data Bridge Admin',
     serviceUrl: '/',
     breadcrumbs: [],
     navigation: buildNavigation(request),
+    auth,
     getAssetPath(asset) {
       const webpackAssetPath = webpackManifest?.[asset]
       return `${assetPath}/${webpackAssetPath ?? asset}`

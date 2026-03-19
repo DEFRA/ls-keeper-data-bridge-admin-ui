@@ -1,0 +1,85 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/query">Query Data</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Record
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <p class="govuk-body govuk-body-s govuk-!-margin-bottom-6">
+    Collection: <strong>{{ collectionName }}</strong>
+    {% if record._id %}
+      &nbsp;|&nbsp; ID: <code class="govuk-!-font-size-14">{{ record._id }}</code>
+    {% endif %}
+  </p>
+
+  {% set summaryRows = [] %}
+  {% for field in fields %}
+    {% set displayValue %}
+      {%- if field.value is defined and field.value is not null and field.value is mapping -%}
+        <pre class="govuk-body-s govuk-!-margin-0" style="white-space:pre-wrap">{{ field.value | dump(2) }}</pre>
+      {%- elif field.value is defined and field.value is not null and field.value is iterable and field.value is not string -%}
+        {% if field.value.length == 0 %}
+          <span class="govuk-hint govuk-!-margin-0">Empty list</span>
+        {% else %}
+          <ul class="govuk-list govuk-list--bullet govuk-!-margin-0">
+            {% for item in field.value %}
+              <li>
+                {%- if item is defined and item is not null and item is mapping -%}
+                  <pre class="govuk-body-s govuk-!-margin-0" style="white-space:pre-wrap">{{ item | dump(2) }}</pre>
+                {%- else -%}
+                  {{ item }}
+                {%- endif -%}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {%- elif field.value === true -%}
+        Yes
+      {%- elif field.value === false -%}
+        No
+      {%- elif field.value is defined and field.value is not null -%}
+        {{ field.value }}
+      {%- else -%}
+        <span class="govuk-hint govuk-!-margin-0">—</span>
+      {%- endif -%}
+    {% endset %}
+    {% set summaryRows = (summaryRows.push({
+      key: { text: field.key },
+      value: { html: displayValue }
+    }), summaryRows) %}
+  {% endfor %}
+
+  <div class="app-scrollable-detail-container">
+    {{ govukSummaryList({
+      rows: summaryRows
+    }) }}
+  </div>
+
+  {{ govukDetails({
+    summaryText: "View raw JSON",
+    html: '<pre class="govuk-body-s" style="overflow-x:auto;max-height:500px"><code>' + (record | dump(2)) + '</code></pre>'
+  }) }}
+
+  <div class="govuk-button-group">
+    <a href="/query" class="govuk-link">Back to query</a>
+  </div>
+{% endblock %}

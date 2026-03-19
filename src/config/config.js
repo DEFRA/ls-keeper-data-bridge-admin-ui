@@ -213,6 +213,38 @@ export const config = convict({
       default: 'x-cdp-request-id',
       env: 'TRACING_HEADER'
     }
+  },
+  backendApi: {
+    baseUrl: {
+      doc: 'Base URL of the Keeper Data Bridge backend API',
+      format: String,
+      default:
+        'https://ephemeral-protected.api.dev.cdp-int.defra.cloud/ls-keeper-data-bridge-backend',
+      env: 'BACKEND_API_BASE_URL'
+    },
+    authorizationApiKey: {
+      doc: 'Authorization ApiKey value for the backend API (sent as Authorization: ApiKey <value>)',
+      format: String,
+      default: '',
+      env: 'BACKEND_AUTHORIZATION_API_KEY',
+      sensitive: true
+    },
+    xApiKey: {
+      doc: 'x-api-key header value for the backend API. Omitted if empty.',
+      format: String,
+      default: '',
+      env: 'BACKEND_X_API_KEY',
+      sensitive: true
+    }
+  },
+  admin: {
+    password: {
+      doc: 'Admin login password',
+      format: String,
+      default: 'admin',
+      env: 'ADMIN_PASSWORD',
+      sensitive: true
+    }
   }
 })
 

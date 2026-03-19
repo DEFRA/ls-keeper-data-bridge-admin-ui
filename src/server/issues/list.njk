@@ -1,0 +1,208 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      <details class="govuk-details" {{ "open" if filters | length }}>
+        <summary class="govuk-details__summary">
+          <span class="govuk-details__summary-text">
+            Filter issues
+          </span>
+        </summary>
+        <div class="govuk-details__text">
+          <form method="get" action="/issues">
+            <div class="govuk-grid-row">
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "CTS LID identifier" },
+                  id: "ctsLidFullIdentifier",
+                  name: "ctsLidFullIdentifier",
+                  value: filters.ctsLidFullIdentifier or "",
+                  classes: "govuk-input--width-20"
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "CPH" },
+                  id: "cph",
+                  name: "cph",
+                  value: filters.cph or "",
+                  classes: "govuk-input--width-20"
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "Issue code" },
+                  id: "issueCode",
+                  name: "issueCode",
+                  value: filters.issueCode or "",
+                  classes: "govuk-input--width-10"
+                }) }}
+              </div>
+            </div>
+            <div class="govuk-grid-row">
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "Rule code" },
+                  id: "ruleCode",
+                  name: "ruleCode",
+                  value: filters.ruleCode or "",
+                  classes: "govuk-input--width-10"
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "Error code" },
+                  id: "errorCode",
+                  name: "errorCode",
+                  value: filters.errorCode or "",
+                  classes: "govuk-input--width-10"
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukSelect({
+                  id: "resolutionStatus",
+                  name: "resolutionStatus",
+                  label: { text: "Resolution status" },
+                  items: [
+                    { value: "", text: "All", selected: not filters.resolutionStatus },
+                    { value: "None", text: "None", selected: filters.resolutionStatus === "None" },
+                    { value: "Todo", text: "To do", selected: filters.resolutionStatus === "Todo" },
+                    { value: "InProgress", text: "In progress", selected: filters.resolutionStatus === "InProgress" },
+                    { value: "Resolved", text: "Resolved", selected: filters.resolutionStatus === "Resolved" }
+                  ]
+                }) }}
+              </div>
+            </div>
+            <div class="govuk-grid-row">
+              <div class="govuk-grid-column-one-third">
+                {{ govukSelect({
+                  id: "isActive",
+                  name: "isActive",
+                  label: { text: "Active" },
+                  items: [
+                    { value: "", text: "All", selected: filters.isActive === undefined or filters.isActive === "" },
+                    { value: "true", text: "Yes", selected: filters.isActive === "true" },
+                    { value: "false", text: "No", selected: filters.isActive === "false" }
+                  ]
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukSelect({
+                  id: "isIgnored",
+                  name: "isIgnored",
+                  label: { text: "Ignored" },
+                  items: [
+                    { value: "", text: "All", selected: filters.isIgnored === undefined or filters.isIgnored === "" },
+                    { value: "true", text: "Yes", selected: filters.isIgnored === "true" },
+                    { value: "false", text: "No", selected: filters.isIgnored === "false" }
+                  ]
+                }) }}
+              </div>
+              <div class="govuk-grid-column-one-third">
+                {{ govukInput({
+                  label: { text: "Assigned to" },
+                  id: "assignedTo",
+                  name: "assignedTo",
+                  value: filters.assignedTo or "",
+                  classes: "govuk-input--width-20"
+                }) }}
+              </div>
+            </div>
+            <div class="govuk-button-group">
+              {{ govukButton({
+                text: "Apply filters"
+              }) }}
+              <a href="/issues" class="govuk-link">Clear filters</a>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      {% if totalCount is defined %}
+        <p class="govuk-body govuk-!-margin-bottom-4">
+          <strong>{{ totalCount }}</strong> issue{{ "s" if totalCount !== 1 }} found
+        </p>
+      {% endif %}
+
+      {% if issues.length %}
+        {% set rows = [] %}
+        {% for issue in issues %}
+          {% if issue.isActive %}
+            {% set activeTag = govukTag({ text: "Active", classes: "govuk-tag--green" }) %}
+          {% else %}
+            {% set activeTag = govukTag({ text: "Inactive", classes: "govuk-tag--grey" }) %}
+          {% endif %}
+
+          {% if issue.isIgnored %}
+            {% set ignoredTag = govukTag({ text: "Ignored", classes: "govuk-tag--orange" }) %}
+          {% else %}
+            {% set ignoredTag = "" %}
+          {% endif %}
+
+          {% set rows = (rows.push([
+            { html: '<a href="/issues/' + issue.id + '" class="govuk-link">' + (issue.id | truncate(12, true, "…")) + '</a>' },
+            { text: issue.ctsLidFullIdentifier or "—" },
+            { text: issue.cph or "—" },
+            { text: issue.issueCode or "—" },
+            { text: issue.ruleCode or "—" },
+            { html: activeTag + " " + ignoredTag },
+            { text: issue.resolutionStatus or "None" },
+            { text: issue.assignedTo or "—" },
+            { text: issue.lastUpdatedAtUtc | formatDate if issue.lastUpdatedAtUtc else "—" }
+          ]), rows) %}
+        {% endfor %}
+
+        {{ govukTable({
+          head: [
+            { text: "ID" },
+            { text: "CTS LID" },
+            { text: "CPH" },
+            { text: "Issue" },
+            { text: "Rule" },
+            { text: "Status" },
+            { text: "Resolution" },
+            { text: "Assigned" },
+            { text: "Updated" }
+          ],
+          rows: rows
+        }) }}
+
+        {% include "partials/pagination.njk" %}
+      {% else %}
+        {% if not apiError %}
+          <p class="govuk-body">No issues found.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

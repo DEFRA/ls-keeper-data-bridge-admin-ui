@@ -1,0 +1,76 @@
+@use "govuk-frontend" as *;
+
+// ── Dashboard Card ────────────────────────────────────────
+.app-dashboard-card {
+  border: 1px solid $govuk-border-colour;
+  padding: govuk-spacing(4);
+  margin-bottom: govuk-spacing(6);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: govuk-spacing(4);
+    border-bottom: 3px solid $govuk-brand-colour;
+    padding-bottom: govuk-spacing(2);
+  }
+}
+
+// ── Metrics Grid ──────────────────────────────────────────
+.app-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: govuk-spacing(3);
+  margin-bottom: govuk-spacing(4);
+}
+
+.app-metric-tile {
+  background: govuk-colour("black", $variant: "tint-95");
+  padding: govuk-spacing(3);
+  border-left: 4px solid $govuk-brand-colour;
+
+  &__label {
+    display: block;
+    @include govuk-font($size: 16);
+    color: $govuk-secondary-text-colour;
+    margin-bottom: govuk-spacing(1);
+  }
+
+  &__value {
+    display: block;
+    @include govuk-font($size: 24, $weight: bold);
+  }
+}
+
+// ── Progress Bar ──────────────────────────────────────────
+.app-progress-bar {
+  height: 24px;
+  background: govuk-colour("black", $variant: "tint-95");
+  border-radius: 2px;
+  overflow: hidden;
+
+  &__fill {
+    height: 100%;
+    background: govuk-colour("blue");
+    transition: width 0.5s ease;
+    min-width: 0;
+  }
+}
+
+// ── Policy Switcher ───────────────────────────────────────
+.app-policy-switcher {
+  border-top: 1px solid $govuk-border-colour;
+  padding-top: govuk-spacing(3);
+  margin-top: govuk-spacing(4);
+}
+
+.app-policy-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: govuk-spacing(2);
+  margin-bottom: govuk-spacing(2);
+}
+
+.app-policy-error {
+  color: $govuk-error-colour;
+}

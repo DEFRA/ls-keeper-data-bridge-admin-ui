@@ -1,0 +1,56 @@
+@use "govuk-frontend" as *;
+
+// ── Active-policy banner ──────────────────────────────
+.app-active-policy-banner {
+  background: govuk-colour("black", $variant: "tint-95");
+  padding: govuk-spacing(3) govuk-spacing(4);
+  border-left: 4px solid govuk-colour("blue");
+}
+
+// ── Policy cards ──────────────────────────────────────
+.app-policy-card {
+  border: 1px solid $govuk-border-colour;
+  padding: govuk-spacing(3) govuk-spacing(4);
+  border-radius: 2px;
+}
+
+.app-policy-card--active {
+  border-left: 4px solid govuk-colour("green");
+}
+
+.app-policy-card--muted {
+  background: govuk-colour("black", $variant: "tint-95");
+  border-left: 4px solid govuk-colour("black", $variant: "tint-80");
+}
+
+// ── Inline settings grid ──────────────────────────────
+.app-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: govuk-spacing(3);
+}
+
+.app-settings-section {
+  border: 1px solid $govuk-border-colour;
+  padding: govuk-spacing(2) govuk-spacing(3);
+  border-radius: 2px;
+}
+
+// ── Compact definition-list rows ──────────────────────
+.app-dl-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px solid govuk-colour("black", $variant: "tint-95");
+
+  dt {
+    font-weight: 400;
+    color: $govuk-secondary-text-colour;
+  }
+
+  dd {
+    margin: 0;
+    font-weight: 700;
+    text-align: right;
+  }
+}

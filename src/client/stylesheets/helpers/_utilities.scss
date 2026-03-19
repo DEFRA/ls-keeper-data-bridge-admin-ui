@@ -1,0 +1,9 @@
+// Utility class used by JS to toggle element visibility
+// (inline styles are blocked by CSP)
+.app-hidden {
+  display: none !important; /* stylelint-disable-line declaration-no-important */
+}
+
+.app-text-align-right {
+  text-align: right;
+}

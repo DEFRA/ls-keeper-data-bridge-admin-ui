@@ -1,0 +1,183 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        {{ import.importId | truncate(12, true, "…") if import else "Detail" }}
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if import %}
+    {% if import.status === "Completed" %}
+      {% set statusTag = govukTag({ text: import.status, classes: "govuk-tag--green" }) %}
+    {% elif import.status === "Started" %}
+      {% set statusTag = govukTag({ text: import.status, classes: "govuk-tag--blue" }) %}
+    {% elif import.status === "Failed" %}
+      {% set statusTag = govukTag({ text: import.status, classes: "govuk-tag--red" }) %}
+    {% else %}
+      {% set statusTag = govukTag({ text: import.status or "Unknown", classes: "govuk-tag--grey" }) %}
+    {% endif %}
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Import ID" },
+          value: { text: import.importId }
+        },
+        {
+          key: { text: "Status" },
+          value: { html: statusTag }
+        },
+        {
+          key: { text: "Source type" },
+          value: { text: import.sourceType or "—" }
+        },
+        {
+          key: { text: "Started" },
+          value: { text: import.startedAtUtc | formatDate if import.startedAtUtc else "—" }
+        },
+        {
+          key: { text: "Completed" },
+          value: { text: import.completedAtUtc | formatDate if import.completedAtUtc else "—" }
+        },
+        {
+          key: { text: "Error" },
+          value: { text: import.error or "—" }
+        }
+      ]
+    }) }}
+
+    {% if import.acquisitionPhase %}
+      <h2 class="govuk-heading-m">Acquisition phase</h2>
+
+      {% if import.acquisitionPhase.status === "Completed" %}
+        {% set acqTag = govukTag({ text: import.acquisitionPhase.status, classes: "govuk-tag--green" }) %}
+      {% elif import.acquisitionPhase.status === "Started" %}
+        {% set acqTag = govukTag({ text: import.acquisitionPhase.status, classes: "govuk-tag--blue" }) %}
+      {% elif import.acquisitionPhase.status === "Failed" %}
+        {% set acqTag = govukTag({ text: import.acquisitionPhase.status, classes: "govuk-tag--red" }) %}
+      {% else %}
+        {% set acqTag = govukTag({ text: import.acquisitionPhase.status or "Not started", classes: "govuk-tag--grey" }) %}
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Status" },
+            value: { html: acqTag }
+          },
+          {
+            key: { text: "Files discovered" },
+            value: { text: import.acquisitionPhase.filesDiscovered }
+          },
+          {
+            key: { text: "Files processed" },
+            value: { text: import.acquisitionPhase.filesProcessed }
+          },
+          {
+            key: { text: "Files failed" },
+            value: { text: import.acquisitionPhase.filesFailed }
+          },
+          {
+            key: { text: "Files skipped" },
+            value: { text: import.acquisitionPhase.filesSkipped }
+          },
+          {
+            key: { text: "Started" },
+            value: { text: import.acquisitionPhase.startedAtUtc | formatDate if import.acquisitionPhase.startedAtUtc else "—" }
+          },
+          {
+            key: { text: "Completed" },
+            value: { text: import.acquisitionPhase.completedAtUtc | formatDate if import.acquisitionPhase.completedAtUtc else "—" }
+          }
+        ]
+      }) }}
+    {% endif %}
+
+    {% if import.ingestionPhase %}
+      <h2 class="govuk-heading-m">Ingestion phase</h2>
+
+      {% if import.ingestionPhase.status === "Completed" %}
+        {% set ingTag = govukTag({ text: import.ingestionPhase.status, classes: "govuk-tag--green" }) %}
+      {% elif import.ingestionPhase.status === "Started" %}
+        {% set ingTag = govukTag({ text: import.ingestionPhase.status, classes: "govuk-tag--blue" }) %}
+      {% elif import.ingestionPhase.status === "Failed" %}
+        {% set ingTag = govukTag({ text: import.ingestionPhase.status, classes: "govuk-tag--red" }) %}
+      {% else %}
+        {% set ingTag = govukTag({ text: import.ingestionPhase.status or "Not started", classes: "govuk-tag--grey" }) %}
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Status" },
+            value: { html: ingTag }
+          },
+          {
+            key: { text: "Files processed" },
+            value: { text: import.ingestionPhase.filesProcessed }
+          },
+          {
+            key: { text: "Records created" },
+            value: { text: import.ingestionPhase.recordsCreated }
+          },
+          {
+            key: { text: "Records updated" },
+            value: { text: import.ingestionPhase.recordsUpdated }
+          },
+          {
+            key: { text: "Records deleted" },
+            value: { text: import.ingestionPhase.recordsDeleted }
+          },
+          {
+            key: { text: "Files skipped" },
+            value: { text: import.ingestionPhase.filesSkipped }
+          },
+          {
+            key: { text: "Started" },
+            value: { text: import.ingestionPhase.startedAtUtc | formatDate if import.ingestionPhase.startedAtUtc else "—" }
+          },
+          {
+            key: { text: "Completed" },
+            value: { text: import.ingestionPhase.completedAtUtc | formatDate if import.ingestionPhase.completedAtUtc else "—" }
+          }
+        ]
+      }) }}
+    {% endif %}
+
+    <div class="govuk-button-group">
+      {{ govukButton({
+        text: "View files",
+        href: "/import/" + import.importId + "/files",
+        classes: "govuk-button--secondary"
+      }) }}
+    </div>
+  {% endif %}
+{% endblock %}

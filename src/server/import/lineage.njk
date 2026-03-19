@@ -1,0 +1,80 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Lineage
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {{ govukSummaryList({
+    rows: [
+      {
+        key: { text: "Collection" },
+        value: { text: collectionName }
+      },
+      {
+        key: { text: "Record ID" },
+        value: { text: recordId }
+      }
+    ]
+  }) }}
+
+  {% if events and events.length %}
+    <h2 class="govuk-heading-m">Lineage events</h2>
+
+    {% set rows = [] %}
+    {% for event in events %}
+      {% set rows = (rows.push([
+        { text: event.eventType or "—" },
+        { text: event.changeType or "—" },
+        { html: '<a href="/import/' + event.importId + '" class="govuk-link">' + (event.importId | truncate(12, true, "…")) + '</a>' },
+        { text: event.fileKey or "—" },
+        { text: event.eventDateUtc | formatDate if event.eventDateUtc else "—" }
+      ]), rows) %}
+    {% endfor %}
+
+    {{ govukTable({
+      head: [
+        { text: "Event type" },
+        { text: "Change" },
+        { text: "Import" },
+        { text: "File" },
+        { text: "Date" }
+      ],
+      rows: rows
+    }) }}
+
+    {% include "partials/pagination.njk" %}
+  {% else %}
+    {% if not apiError %}
+      <p class="govuk-body">No lineage events found for this record.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

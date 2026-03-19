@@ -1,0 +1,30 @@
+{#
+  Pagination partial.
+  Expects: pagination = { currentPage, totalPages, basePath, queryParams }
+#}
+{% from "govuk/components/pagination/macro.njk" import govukPagination %}
+
+{% if pagination and pagination.totalPages > 1 %}
+  {% set items = [] %}
+  {% for i in range(1, pagination.totalPages + 1) %}
+    {% set qs = "" %}
+    {% if pagination.queryParams %}
+      {% for key, value in pagination.queryParams %}
+        {% if key !== "page" and value %}
+          {% set qs = qs + "&" + key + "=" + value %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% set items = (items.push({
+      number: i,
+      href: pagination.basePath + "?page=" + i + qs,
+      current: i == pagination.currentPage
+    }), items) %}
+  {% endfor %}
+
+  {{ govukPagination({
+    items: items,
+    previous: { href: pagination.basePath + "?page=" + (pagination.currentPage - 1) } if pagination.currentPage > 1 else undefined,
+    next: { href: pagination.basePath + "?page=" + (pagination.currentPage + 1) } if pagination.currentPage < pagination.totalPages else undefined
+  }) }}
+{% endif %}

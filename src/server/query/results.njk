@@ -1,0 +1,164 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/query">Query Data</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Results
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <p class="govuk-body">
+    Showing <strong>{{ returnedCount }}</strong> of <strong>{{ totalCount }}</strong> record{{ "s" if totalCount !== 1 }}
+    {% if envelope.executedAtUtc %}
+      — queried at {{ envelope.executedAtUtc | formatDate }}
+    {% endif %}
+  </p>
+
+  {% if records and records.length and columns.length %}
+    <div class="app-scrollable-table-container">
+      <table class="govuk-table app-scrollable-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            {% for col in columns %}
+              <th scope="col" class="govuk-table__header app-table__header--nowrap">{{ col }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for row in records %}
+            <tr class="govuk-table__row">
+              {% for col in columns %}
+                {% set cellValue = row[col] %}
+                <td class="govuk-table__cell app-table__cell--nowrap">
+                  {%- if loop.first and row._id -%}
+                    <a href="/query/{{ collectionName | urlencode }}/record/{{ row._id | urlencode }}" class="govuk-link">
+                      {%- if cellValue is defined and cellValue is not null and cellValue is mapping -%}
+                        {{ cellValue | dump }}
+                      {%- elif cellValue is defined and cellValue is not null and cellValue is iterable and cellValue is not string -%}
+                        {{ cellValue | join(", ") }}
+                      {%- elif cellValue === true -%}
+                        Yes
+                      {%- elif cellValue === false -%}
+                        No
+                      {%- elif cellValue is defined and cellValue is not null -%}
+                        {{ cellValue }}
+                      {%- else -%}
+                        —
+                      {%- endif -%}
+                    </a>
+                  {%- else -%}
+                    {%- if cellValue is defined and cellValue is not null and cellValue is mapping -%}
+                      {{ cellValue | dump }}
+                    {%- elif cellValue is defined and cellValue is not null and cellValue is iterable and cellValue is not string -%}
+                      {{ cellValue | join(", ") }}
+                    {%- elif cellValue === true -%}
+                      Yes
+                    {%- elif cellValue === false -%}
+                      No
+                    {%- elif cellValue is defined and cellValue is not null -%}
+                      {{ cellValue }}
+                    {%- else -%}
+                      —
+                    {%- endif -%}
+                  {%- endif -%}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif records and records.length %}
+    <p class="govuk-body">Results returned but could not be displayed as a table.</p>
+  {% else %}
+    <p class="govuk-body">No results found.</p>
+  {% endif %}
+
+  {% if pagination.totalPages > 1 %}
+    <nav class="govuk-pagination" role="navigation" aria-label="Pagination">
+      {% if pagination.hasPrevious %}
+        <div class="govuk-pagination__prev">
+          <form method="post" action="/query" class="app-pagination-form">
+            <input type="hidden" name="collectionName" value="{{ formValues.collectionName }}">
+            <input type="hidden" name="$filter" value="{{ formValues['$filter'] }}">
+            <input type="hidden" name="$orderby" value="{{ formValues['$orderby'] }}">
+            <input type="hidden" name="$select" value="{{ formValues['$select'] }}">
+            <input type="hidden" name="$skip" value="{{ pagination.previousSkip }}">
+            <input type="hidden" name="$top" value="{{ pagination.top }}">
+            <button type="submit" class="govuk-link govuk-pagination__link">
+              <svg class="govuk-pagination__icon govuk-pagination__icon--prev" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                <path d="m6.5938-0.0078125-6.7266 6.7266 6.7441 6.4062 1.377-1.449-4.1856-3.9768h12.896v-2h-12.984l4.2931-4.293-1.414-1.414z"></path>
+              </svg>
+              <span class="govuk-pagination__link-title">Previous<span class="govuk-visually-hidden"> page</span></span>
+            </button>
+          </form>
+        </div>
+      {% endif %}
+
+      <ul class="govuk-pagination__list">
+        <li class="govuk-pagination__item">
+          <span class="govuk-pagination__link">
+            Page {{ pagination.currentPage }} of {{ pagination.totalPages }}
+          </span>
+        </li>
+      </ul>
+
+      {% if pagination.hasNext %}
+        <div class="govuk-pagination__next">
+          <form method="post" action="/query" class="app-pagination-form">
+            <input type="hidden" name="collectionName" value="{{ formValues.collectionName }}">
+            <input type="hidden" name="$filter" value="{{ formValues['$filter'] }}">
+            <input type="hidden" name="$orderby" value="{{ formValues['$orderby'] }}">
+            <input type="hidden" name="$select" value="{{ formValues['$select'] }}">
+            <input type="hidden" name="$skip" value="{{ pagination.nextSkip }}">
+            <input type="hidden" name="$top" value="{{ pagination.top }}">
+            <button type="submit" class="govuk-link govuk-pagination__link">
+              <span class="govuk-pagination__link-title">Next<span class="govuk-visually-hidden"> page</span></span>
+              <svg class="govuk-pagination__icon govuk-pagination__icon--next" xmlns="http://www.w3.org/2000/svg" height="13" width="15" aria-hidden="true" focusable="false" viewBox="0 0 15 13">
+                <path d="m8.107-0.0078125-1.4136 1.414 4.2926 4.293h-12.986v2h12.896l-4.1855 3.9766 1.377 1.4492 6.7441-6.4062-6.7246-6.7266z"></path>
+              </svg>
+            </button>
+          </form>
+        </div>
+      {% endif %}
+    </nav>
+  {% endif %}
+
+  {{ govukDetails({
+    summaryText: "View raw JSON",
+    html: '<pre class="govuk-body-s" style="overflow-x:auto;max-height:500px"><code>' + rawJson + '</code></pre>'
+  }) }}
+
+  <form method="post" action="/query" novalidate>
+    <input type="hidden" name="collectionName" value="{{ formValues.collectionName if formValues }}">
+    <input type="hidden" name="$filter" value="{{ formValues['$filter'] if formValues }}">
+    <input type="hidden" name="$orderby" value="{{ formValues['$orderby'] if formValues }}">
+    <input type="hidden" name="$select" value="{{ formValues['$select'] if formValues }}">
+    <input type="hidden" name="$skip" value="{{ formValues['$skip'] if formValues }}">
+    <input type="hidden" name="$top" value="{{ formValues['$top'] if formValues }}">
+    <div class="govuk-button-group">
+      {{ govukButton({
+        text: "Re-run query",
+        classes: "govuk-button--secondary"
+      }) }}
+      <a href="/query" class="govuk-link">New query</a>
+    </div>
+  </form>
+{% endblock %}

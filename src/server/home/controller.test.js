@@ -1,5 +1,6 @@
 import { createServer } from '../server.js'
-import { statusCodes } from '../common/constants/status-codes.js'
+
+const REDIRECT = 302
 
 describe('#homeController', () => {
   let server
@@ -13,13 +14,13 @@ describe('#homeController', () => {
     await server.stop({ timeout: 0 })
   })
 
-  test('Should provide expected response', async () => {
-    const { result, statusCode } = await server.inject({
+  test('Should redirect unauthenticated requests to login', async () => {
+    const { statusCode, headers } = await server.inject({
       method: 'GET',
       url: '/'
     })
 
-    expect(result).toEqual(expect.stringContaining('Home |'))
-    expect(statusCode).toBe(statusCodes.ok)
+    expect(statusCode).toBe(REDIRECT)
+    expect(headers.location).toContain('/auth/login')
   })
 })

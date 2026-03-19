@@ -1,3 +1,1 @@
-const govukRebrand = true
-
-export { govukRebrand }
+// No globals currently needed — govukRebrand removed in v6 migration

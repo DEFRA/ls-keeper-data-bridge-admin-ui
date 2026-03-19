@@ -1,0 +1,185 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {# ── Flash notification ─────────────────────────────── #}
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {# ── API error ──────────────────────────────────────── #}
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body"><p>{{ apiError }}</p></div>
+    </div>
+  {% endif %}
+
+  {# ── Active policy banner ───────────────────────────── #}
+  <div class="app-active-policy-banner govuk-!-margin-bottom-6">
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        <h2 class="govuk-heading-s govuk-!-margin-bottom-1">Currently active policy</h2>
+        {% if activePolicy and not activePolicy.isReadOnly %}
+          <p class="govuk-body govuk-!-margin-bottom-2">
+            <strong>{{ activePolicy.name }}</strong>
+            <span class="govuk-body-s govuk-!-margin-left-1">({{ activePolicy.slug }})</span>
+          </p>
+        {% else %}
+          <p class="govuk-body govuk-!-margin-bottom-2">
+            <strong>Normal</strong>
+            <span class="govuk-body-s govuk-!-margin-left-1">(system default — no throttle policy active)</span>
+          </p>
+        {% endif %}
+      </div>
+      <div class="govuk-grid-column-one-third" style="text-align:right;padding-top:8px">
+        {% if activePolicy and not activePolicy.isReadOnly %}
+          <form method="post" action="/throttle-policies/deactivate" style="display:inline">
+            {{ govukButton({
+              text: "Revert to Normal",
+              classes: "govuk-button--warning govuk-!-margin-bottom-0"
+            }) }}
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Action row ─────────────────────────────────────── #}
+  <div class="govuk-grid-row govuk-!-margin-bottom-4">
+    <div class="govuk-grid-column-full">
+      <a href="/throttle-policies/create" class="govuk-button">New policy</a>
+    </div>
+  </div>
+
+  {# ── Policy cards ──────────────────────────────────── #}
+  {% if policies.length === 0 %}
+    <p class="govuk-body">No throttle policies found.</p>
+  {% endif %}
+
+  {% for policy in policies %}
+    <div class="app-policy-card govuk-!-margin-bottom-4 {% if policy.isReadOnly %}app-policy-card--muted{% endif %} {% if policy.isActive %}app-policy-card--active{% endif %}">
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-two-thirds">
+          <h3 class="govuk-heading-s govuk-!-margin-bottom-1">
+            {{ policy.name }}
+            {% if policy.isActive %}
+              {{ govukTag({ text: "Active", classes: "govuk-tag--green govuk-!-margin-left-1" }) }}
+            {% endif %}
+            {% if policy.isReadOnly %}
+              {{ govukTag({ text: "System Default", classes: "govuk-tag--grey govuk-!-margin-left-1" }) }}
+            {% endif %}
+          </h3>
+          <p class="govuk-body-s govuk-!-margin-bottom-1">
+            Slug: <code>{{ policy.slug }}</code>
+          </p>
+          {% if policy.createdAtUtc %}
+            <p class="govuk-body-s govuk-hint govuk-!-margin-bottom-0">
+              Created: {{ policy.createdAtUtc | formatDate }}
+              {% if policy.updatedAtUtc %}
+                &nbsp;|&nbsp; Updated: {{ policy.updatedAtUtc | formatDate }}
+              {% endif %}
+            </p>
+          {% endif %}
+        </div>
+
+        <div class="govuk-grid-column-one-third" style="text-align:right;padding-top:4px">
+          {% if not policy.isReadOnly %}
+            {% if policy.isActive %}
+              <form method="post" action="/throttle-policies/deactivate" style="display:inline">
+                {{ govukButton({
+                  text: "Deactivate",
+                  classes: "govuk-button--warning govuk-button--secondary govuk-!-margin-bottom-1"
+                }) }}
+              </form>
+            {% else %}
+              <form method="post" action="/throttle-policies/{{ policy.slug }}/activate" style="display:inline">
+                {{ govukButton({
+                  text: "Activate",
+                  classes: "govuk-button--secondary govuk-!-margin-bottom-1"
+                }) }}
+              </form>
+            {% endif %}
+
+            <a href="/throttle-policies/{{ policy.slug }}/edit" class="govuk-button govuk-button--secondary govuk-!-margin-bottom-1">Edit</a>
+
+            {% if not policy.isActive %}
+              <a href="/throttle-policies/{{ policy.slug }}/delete" class="govuk-button govuk-button--warning govuk-!-margin-bottom-1">Delete</a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Inline settings summary ──────────────────── #}
+      {% if policy.settings %}
+        <details class="govuk-details govuk-!-margin-top-2 govuk-!-margin-bottom-0" data-module="govuk-details">
+          <summary class="govuk-details__summary">
+            <span class="govuk-details__summary-text">View settings</span>
+          </summary>
+          <div class="govuk-details__text app-settings-grid">
+            {% if policy.settings.ingestion %}
+              <div class="app-settings-section">
+                <h4 class="govuk-heading-xs govuk-!-margin-bottom-1">Ingestion</h4>
+                <dl class="govuk-body-s govuk-!-margin-bottom-0">
+                  <div class="app-dl-row"><dt>Batch Size</dt><dd>{{ policy.settings.ingestion.batchSize }}</dd></div>
+                  <div class="app-dl-row"><dt>Batch Delay (ms)</dt><dd>{{ policy.settings.ingestion.batchDelayMs }}</dd></div>
+                  <div class="app-dl-row"><dt>Progress Interval</dt><dd>{{ policy.settings.ingestion.progressUpdateInterval }}</dd></div>
+                  <div class="app-dl-row"><dt>Log Interval</dt><dd>{{ policy.settings.ingestion.logInterval }}</dd></div>
+                </dl>
+              </div>
+            {% endif %}
+            {% if policy.settings.cleanseAnalysis %}
+              <div class="app-settings-section">
+                <h4 class="govuk-heading-xs govuk-!-margin-bottom-1">Cleanse Analysis</h4>
+                <dl class="govuk-body-s govuk-!-margin-bottom-0">
+                  <div class="app-dl-row"><dt>Pump Batch Size</dt><dd>{{ policy.settings.cleanseAnalysis.pumpBatchSize }}</dd></div>
+                  <div class="app-dl-row"><dt>Pump Delay (ms)</dt><dd>{{ policy.settings.cleanseAnalysis.pumpDelayMs }}</dd></div>
+                  <div class="app-dl-row"><dt>Record Issue Delay (ms)</dt><dd>{{ policy.settings.cleanseAnalysis.recordIssueDelayMs }}</dd></div>
+                  <div class="app-dl-row"><dt>Progress Interval</dt><dd>{{ policy.settings.cleanseAnalysis.progressUpdateInterval }}</dd></div>
+                </dl>
+              </div>
+            {% endif %}
+            {% if policy.settings.cleanseExport %}
+              <div class="app-settings-section">
+                <h4 class="govuk-heading-xs govuk-!-margin-bottom-1">Cleanse Export</h4>
+                <dl class="govuk-body-s govuk-!-margin-bottom-0">
+                  <div class="app-dl-row"><dt>Stream Batch Size</dt><dd>{{ policy.settings.cleanseExport.streamBatchSize }}</dd></div>
+                  <div class="app-dl-row"><dt>Throttle Delay (ms)</dt><dd>{{ policy.settings.cleanseExport.throttlingDelayMs }}</dd></div>
+                </dl>
+              </div>
+            {% endif %}
+            {% if policy.settings.issueDeactivation %}
+              <div class="app-settings-section">
+                <h4 class="govuk-heading-xs govuk-!-margin-bottom-1">Issue Deactivation</h4>
+                <dl class="govuk-body-s govuk-!-margin-bottom-0">
+                  <div class="app-dl-row"><dt>Batch Size</dt><dd>{{ policy.settings.issueDeactivation.batchSize }}</dd></div>
+                  <div class="app-dl-row"><dt>Throttle Delay (ms)</dt><dd>{{ policy.settings.issueDeactivation.throttleDelayMs }}</dd></div>
+                </dl>
+              </div>
+            {% endif %}
+            {% if policy.settings.issueQuery %}
+              <div class="app-settings-section">
+                <h4 class="govuk-heading-xs govuk-!-margin-bottom-1">Issue Query</h4>
+                <dl class="govuk-body-s govuk-!-margin-bottom-0">
+                  <div class="app-dl-row"><dt>Stream Batch Size</dt><dd>{{ policy.settings.issueQuery.streamBatchSize }}</dd></div>
+                </dl>
+              </div>
+            {% endif %}
+          </div>
+        </details>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% endblock %}

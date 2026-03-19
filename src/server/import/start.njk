@@ -1,0 +1,69 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Start new import
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {% if error %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: [
+        {
+          text: error,
+          href: "#sourceType"
+        }
+      ]
+    }) }}
+  {% endif %}
+
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  <form method="post" action="/import/start" novalidate>
+    {{ govukRadios({
+      name: "sourceType",
+      id: "sourceType",
+      fieldset: {
+        legend: {
+          text: "Select the source type for the import",
+          classes: "govuk-fieldset__legend--m"
+        }
+      },
+      errorMessage: { text: error } if error else undefined,
+      items: [
+        {
+          value: "external",
+          text: "External Catalogue",
+          checked: sourceType === "external"
+        },
+        {
+          value: "internal",
+          text: "Internal Storage",
+          checked: sourceType === "internal"
+        }
+      ]
+    }) }}
+
+    {{ govukButton({
+      text: "Start import"
+    }) }}
+  </form>
+{% endblock %}

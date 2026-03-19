@@ -1,0 +1,135 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/cleanse">Cleanse</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        {{ run.id | truncate(12, true, "…") if run else "Detail" }}
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% set flash = getFlash(request) if getFlash else null %}
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if run %}
+    {% if run.status === "Completed" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--green" }) %}
+    {% elif run.status === "Running" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--blue" }) %}
+    {% elif run.status === "Failed" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--red" }) %}
+    {% elif run.status === "Cancelled" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--orange" }) %}
+    {% else %}
+      {% set statusTag = govukTag({ text: run.status or "Unknown", classes: "govuk-tag--grey" }) %}
+    {% endif %}
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Operation ID" },
+          value: { text: run.id }
+        },
+        {
+          key: { text: "Status" },
+          value: { html: statusTag }
+        },
+        {
+          key: { text: "Status description" },
+          value: { text: run.statusDescription or "—" }
+        },
+        {
+          key: { text: "Started" },
+          value: { text: run.startedAtUtc | formatDate if run.startedAtUtc else "—" }
+        },
+        {
+          key: { text: "Completed" },
+          value: { text: run.completedAtUtc | formatDate if run.completedAtUtc else "—" }
+        },
+        {
+          key: { text: "Duration" },
+          value: { text: (run.durationMs / 1000) | round(1) + "s" if run.durationMs else "—" }
+        },
+        {
+          key: { text: "Progress" },
+          value: { text: run.progressPercentage + "%" if run.progressPercentage is defined else "—" }
+        },
+        {
+          key: { text: "Total records" },
+          value: { text: run.totalRecords }
+        },
+        {
+          key: { text: "Records analysed" },
+          value: { text: run.recordsAnalyzed }
+        },
+        {
+          key: { text: "Issues found" },
+          value: { text: run.issuesFound }
+        },
+        {
+          key: { text: "Issues resolved" },
+          value: { text: run.issuesResolved }
+        },
+        {
+          key: { text: "Error" },
+          value: { text: run.error or "—" }
+        }
+      ]
+    }) }}
+
+    {% if run.reportUrl %}
+      <h2 class="govuk-heading-m">Report</h2>
+      <p class="govuk-body">
+        <a href="{{ run.reportUrl }}" class="govuk-link" target="_blank" rel="noopener noreferrer">Download report</a>
+      </p>
+      <form method="post" action="/cleanse/run/{{ run.id }}/regenerate-url">
+        {{ govukButton({
+          text: "Regenerate report URL",
+          classes: "govuk-button--secondary"
+        }) }}
+      </form>
+    {% elif run.reportObjectKey %}
+      <h2 class="govuk-heading-m">Report</h2>
+      <p class="govuk-body">Report available but URL has expired.</p>
+      <form method="post" action="/cleanse/run/{{ run.id }}/regenerate-url">
+        {{ govukButton({
+          text: "Regenerate report URL",
+          classes: "govuk-button--secondary"
+        }) }}
+      </form>
+    {% endif %}
+  {% endif %}
+{% endblock %}

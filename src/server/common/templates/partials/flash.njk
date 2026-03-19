@@ -1,0 +1,14 @@
+{#
+  Flash notification banner partial.
+  Expects: flash = { type, title, message }
+  type can be 'success' or omitted for default
+#}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% if flash %}
+  {{ govukNotificationBanner({
+    type: flash.type if flash.type else "success",
+    titleText: flash.title if flash.title else "Success",
+    text: flash.message
+  }) }}
+{% endif %}

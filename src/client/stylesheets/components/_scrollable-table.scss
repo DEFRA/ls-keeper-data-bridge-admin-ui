@@ -1,0 +1,77 @@
+@use "govuk-frontend" as *;
+
+// Scrollable table container for wide data tables
+.app-scrollable-table-container {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 70vh;
+  border: 1px solid $govuk-border-colour;
+  margin-bottom: govuk-spacing(6);
+}
+
+.app-scrollable-table {
+  margin-bottom: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.app-scrollable-table .govuk-table__header,
+.app-scrollable-table .govuk-table__cell {
+  font-size: 0.75rem;
+  padding: govuk-spacing(1) govuk-spacing(2);
+}
+
+.app-table__header--nowrap,
+.app-table__cell--nowrap {
+  white-space: nowrap;
+}
+
+// Scrollable detail container for record detail view
+.app-scrollable-detail-container {
+  overflow-y: auto;
+  max-height: 70vh;
+  border: 1px solid $govuk-border-colour;
+  margin-bottom: govuk-spacing(6);
+  padding: 0 govuk-spacing(3);
+  font-size: 0.75rem;
+  line-height: 1.35;
+
+  .govuk-summary-list__key,
+  .govuk-summary-list__value {
+    font-size: 0.75rem;
+    padding-top: govuk-spacing(1);
+    padding-bottom: govuk-spacing(1);
+  }
+
+  .govuk-summary-list__key {
+    font-weight: 700;
+  }
+}
+
+.app-scrollable-table .govuk-table__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: govuk-colour("white");
+}
+
+// Pagination forms should be inline
+.app-pagination-form {
+  display: inline;
+}
+
+.app-pagination-form button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  color: $govuk-link-colour;
+  text-decoration: underline;
+  text-underline-offset: .1578em;
+
+  &:hover {
+    color: $govuk-link-hover-colour;
+  }
+}

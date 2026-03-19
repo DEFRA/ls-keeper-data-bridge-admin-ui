@@ -1,0 +1,244 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/issues">Issues</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        {{ issue.id | truncate(12, true, "…") if issue else "Detail" }}
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if issue %}
+    {% if issue.isActive %}
+      {% set activeTag = govukTag({ text: "Active", classes: "govuk-tag--green" }) %}
+    {% else %}
+      {% set activeTag = govukTag({ text: "Inactive", classes: "govuk-tag--grey" }) %}
+    {% endif %}
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Issue ID" },
+          value: { text: issue.id }
+        },
+        {
+          key: { text: "CTS LID identifier" },
+          value: { text: issue.ctsLidFullIdentifier or "—" }
+        },
+        {
+          key: { text: "CPH" },
+          value: { text: issue.cph or "—" }
+        },
+        {
+          key: { text: "Issue code" },
+          value: { text: issue.issueCode or "—" }
+        },
+        {
+          key: { text: "Rule code" },
+          value: { text: issue.ruleCode or "—" }
+        },
+        {
+          key: { text: "Error code" },
+          value: { text: issue.errorCode or "—" }
+        },
+        {
+          key: { text: "Error description" },
+          value: { text: issue.errorDescription or "—" }
+        },
+        {
+          key: { text: "Active" },
+          value: { html: activeTag }
+        },
+        {
+          key: { text: "Ignored" },
+          value: { text: "Yes" if issue.isIgnored else "No" }
+        },
+        {
+          key: { text: "Resolution status" },
+          value: { text: issue.resolutionStatus or "None" }
+        },
+        {
+          key: { text: "Assigned to" },
+          value: { text: issue.assignedTo or "Unassigned" }
+        },
+        {
+          key: { text: "Created" },
+          value: { text: issue.createdAtUtc | formatDate if issue.createdAtUtc else "—" }
+        },
+        {
+          key: { text: "Last updated" },
+          value: { text: issue.lastUpdatedAtUtc | formatDate if issue.lastUpdatedAtUtc else "—" }
+        }
+      ]
+    }) }}
+
+    {% if issue.emailCTS and issue.emailCTS.length %}
+      <h3 class="govuk-heading-s">CTS email</h3>
+      <ul class="govuk-list">
+        {% for email in issue.emailCTS %}
+          <li>{{ email }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if issue.emailSAM %}
+      <p class="govuk-body"><strong>SAM email:</strong> {{ issue.emailSAM }}</p>
+    {% endif %}
+
+    {% if issue.telCTS and issue.telCTS.length %}
+      <h3 class="govuk-heading-s">CTS telephone</h3>
+      <ul class="govuk-list">
+        {% for tel in issue.telCTS %}
+          <li>{{ tel }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if issue.telSAM %}
+      <p class="govuk-body"><strong>SAM telephone:</strong> {{ issue.telSAM }}</p>
+    {% endif %}
+
+    {% if issue.fsa %}
+      <p class="govuk-body"><strong>FSA:</strong> {{ issue.fsa }}</p>
+    {% endif %}
+
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+    <h2 class="govuk-heading-m">Actions</h2>
+
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-one-half">
+        <h3 class="govuk-heading-s">Assign</h3>
+        {% if issue.assignedTo %}
+          <p class="govuk-body">Currently assigned to <strong>{{ issue.assignedTo }}</strong></p>
+          <form method="post" action="/issues/{{ issue.id }}/unassign">
+            {{ govukButton({
+              text: "Unassign",
+              classes: "govuk-button--secondary"
+            }) }}
+          </form>
+        {% endif %}
+        <form method="post" action="/issues/{{ issue.id }}/assign">
+          {{ govukInput({
+            label: { text: "Assign to" },
+            id: "assignedTo",
+            name: "assignedTo",
+            classes: "govuk-input--width-20",
+            value: issue.assignedTo or ""
+          }) }}
+          {{ govukButton({
+            text: "Assign",
+            classes: "govuk-button--secondary"
+          }) }}
+        </form>
+      </div>
+
+      <div class="govuk-grid-column-one-half">
+        <h3 class="govuk-heading-s">Resolution status</h3>
+        <form method="post" action="/issues/{{ issue.id }}/resolution-status">
+          {{ govukSelect({
+            id: "status",
+            name: "status",
+            label: { text: "New status" },
+            items: [
+              { value: "None", text: "None", selected: issue.resolutionStatus === "None" or not issue.resolutionStatus },
+              { value: "Todo", text: "To do", selected: issue.resolutionStatus === "Todo" },
+              { value: "InProgress", text: "In progress", selected: issue.resolutionStatus === "InProgress" },
+              { value: "Resolved", text: "Resolved", selected: issue.resolutionStatus === "Resolved" }
+            ]
+          }) }}
+          {{ govukButton({
+            text: "Update status",
+            classes: "govuk-button--secondary"
+          }) }}
+        </form>
+
+        <h3 class="govuk-heading-s">Ignore</h3>
+        {% if issue.isIgnored %}
+          <form method="post" action="/issues/{{ issue.id }}/unignore">
+            {{ govukButton({
+              text: "Remove ignore flag",
+              classes: "govuk-button--secondary"
+            }) }}
+          </form>
+        {% else %}
+          <form method="post" action="/issues/{{ issue.id }}/ignore">
+            {{ govukButton({
+              text: "Mark as ignored",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <hr class="govuk-section-break govuk-section-break--l govuk-section-break--visible">
+
+    <h2 class="govuk-heading-m">History</h2>
+
+    {% if history and history.length %}
+      {% set rows = [] %}
+      {% for entry in history %}
+        {% set rows = (rows.push([
+          { text: entry.action or "—" },
+          { text: entry.performedBy or "—" },
+          { text: entry.detail or "—" },
+          { text: entry.occurredAtUtc | formatDate if entry.occurredAtUtc else "—" }
+        ]), rows) %}
+      {% endfor %}
+
+      {{ govukTable({
+        head: [
+          { text: "Action" },
+          { text: "Performed by" },
+          { text: "Detail" },
+          { text: "Date" }
+        ],
+        rows: rows
+      }) }}
+
+      {% set pagination = historyPagination %}
+      {% include "partials/pagination.njk" %}
+    {% else %}
+      <p class="govuk-body">No history entries found.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}

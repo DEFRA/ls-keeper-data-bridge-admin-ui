@@ -1,0 +1,92 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: flash.type,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-full">
+
+      <div class="govuk-button-group">
+        {{ govukButton({
+          text: "Start new import",
+          href: "/import/start"
+        }) }}
+        {{ govukButton({
+          text: "Admin",
+          href: "/import/admin",
+          classes: "govuk-button--secondary"
+        }) }}
+      </div>
+
+      {% if imports.length %}
+        {% set rows = [] %}
+        {% for imp in imports %}
+          {% if imp.status === "Completed" %}
+            {% set statusTag = govukTag({ text: imp.status, classes: "govuk-tag--green" }) %}
+          {% elif imp.status === "Started" %}
+            {% set statusTag = govukTag({ text: imp.status, classes: "govuk-tag--blue" }) %}
+          {% elif imp.status === "Failed" %}
+            {% set statusTag = govukTag({ text: imp.status, classes: "govuk-tag--red" }) %}
+          {% else %}
+            {% set statusTag = govukTag({ text: imp.status or "Unknown", classes: "govuk-tag--grey" }) %}
+          {% endif %}
+
+          {% set rows = (rows.push([
+            { html: '<a href="/import/' + imp.importId + '" class="govuk-link">' + (imp.importId | truncate(12, true, "…")) + '</a>' },
+            { html: statusTag },
+            { text: imp.startedAtUtc | formatDate if imp.startedAtUtc else "—" },
+            { text: imp.completedAtUtc | formatDate if imp.completedAtUtc else "—" },
+            { text: imp.filesProcessed },
+            { text: imp.recordsCreated },
+            { text: imp.recordsUpdated },
+            { text: imp.recordsDeleted }
+          ]), rows) %}
+        {% endfor %}
+
+        {{ govukTable({
+          head: [
+            { text: "Import ID" },
+            { text: "Status" },
+            { text: "Started" },
+            { text: "Completed" },
+            { text: "Files" },
+            { text: "Created" },
+            { text: "Updated" },
+            { text: "Deleted" }
+          ],
+          rows: rows
+        }) }}
+
+        {% include "partials/pagination.njk" %}
+      {% else %}
+        {% if not apiError %}
+          <p class="govuk-body">No imports found.</p>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

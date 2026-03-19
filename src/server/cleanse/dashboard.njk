@@ -1,0 +1,300 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {# ── Notification area (JS-driven notifications appear here) ── #}
+  <div id="notification-area" aria-live="polite">
+    {% if flash %}
+      {{ govukNotificationBanner({
+        type: "success" if flash.type == "success" else undefined,
+        titleText: flash.title,
+        text: flash.message
+      }) }}
+    {% endif %}
+  </div>
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {# ── Connection warning (shown after 5 consecutive poll failures) ── #}
+  <div class="govuk-warning-text app-hidden" id="connection-warning">
+    <span class="govuk-warning-text__icon" aria-hidden="true">!</span>
+    <strong class="govuk-warning-text__text">
+      <span class="govuk-visually-hidden">Warning</span>
+      Unable to reach the server. Retrying…
+    </strong>
+  </div>
+
+  <div id="cleanse-dashboard">
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Hero Card — Active Operation / Idle State              #}
+    {# ═══════════════════════════════════════════════════════ #}
+    <div class="app-dashboard-card" id="active-widget">
+      <div class="app-dashboard-card__header">
+        <h2 class="govuk-heading-m govuk-!-margin-bottom-0">Cleanse Analysis</h2>
+        <span id="widget-status-tag"
+              class="govuk-tag {% if activeRun %}{% if activeRun.status == 'Running' %}govuk-tag--blue{% else %}govuk-tag--yellow{% endif %}{% else %}govuk-tag--grey{% endif %}">
+          {%- if activeRun -%}
+            {{ "Cancelling…" if activeRun.status == "Cancelling" else activeRun.status }}
+          {%- else -%}
+            Idle
+          {%- endif -%}
+        </span>
+      </div>
+
+      {# ── Idle message ── #}
+      <p class="govuk-body{% if activeRun %} app-hidden{% endif %}" id="idle-message">
+        No analysis is currently running.
+      </p>
+
+      {# ── Real-time metrics grid ── #}
+      <div class="app-metrics-grid{% if not activeRun %} app-hidden{% endif %}" id="metrics-grid"
+           aria-live="polite">
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Current speed</span>
+          <span class="app-metric-tile__value" id="metric-current-rpm">
+            {%- if activeRun and activeRun.stats and activeRun.stats.currentRpm is defined -%}
+              {{ activeRun.stats.currentRpm | round }} records/min
+            {%- else -%}Calculating…{%- endif -%}
+          </span>
+        </div>
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Average speed</span>
+          <span class="app-metric-tile__value" id="metric-average-rpm">
+            {%- if activeRun and activeRun.stats and activeRun.stats.averageRpm is defined -%}
+              {{ activeRun.stats.averageRpm | round }} records/min
+            {%- else -%}Calculating…{%- endif -%}
+          </span>
+        </div>
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Time remaining</span>
+          <span class="app-metric-tile__value" id="metric-time-remaining">
+            {%- if activeRun and activeRun.stats and activeRun.stats.estimatedDurationRemainingSeconds is defined -%}
+              {{ (activeRun.stats.estimatedDurationRemainingSeconds * 1000) | formatDuration }}
+            {%- else -%}Calculating…{%- endif -%}
+          </span>
+        </div>
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Est. completion</span>
+          <span class="app-metric-tile__value" id="metric-est-complete">
+            {%- if activeRun and activeRun.stats and activeRun.stats.projectedEndUtc -%}
+              {{ activeRun.stats.projectedEndUtc | formatDate("dd MMM yyyy HH:mm") }}
+            {%- else -%}Calculating…{%- endif -%}
+          </span>
+        </div>
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Issues found</span>
+          <span class="app-metric-tile__value" id="metric-issues-found">
+            {{ activeRun.issuesFound if activeRun else 0 }}
+          </span>
+        </div>
+        <div class="app-metric-tile">
+          <span class="app-metric-tile__label">Issues resolved</span>
+          <span class="app-metric-tile__value" id="metric-issues-resolved">
+            {{ activeRun.issuesResolved if activeRun else 0 }}
+          </span>
+        </div>
+      </div>
+
+      {# ── Progress bar ── #}
+      <div class="{% if not activeRun %}app-hidden{% endif %}" id="progress-section">
+        <p class="govuk-body govuk-!-margin-bottom-1">
+          Records: <span id="progress-text">
+            {%- if activeRun -%}
+              {{ activeRun.recordsAnalyzed }} of {{ activeRun.totalRecords }}
+            {%- endif -%}
+          </span>
+        </p>
+        <div class="app-progress-bar"
+             role="progressbar"
+             aria-valuenow="{{ activeRun.progressPercentage | round if activeRun else 0 }}"
+             aria-valuemin="0"
+             aria-valuemax="100"
+             aria-label="Analysis progress">
+          <div class="app-progress-bar__fill" id="progress-bar"
+               style="width: {{ activeRun.progressPercentage if activeRun else 0 }}%"></div>
+        </div>
+        <p class="govuk-body-s govuk-!-margin-top-1">
+          <span id="progress-percentage">
+            {{- (activeRun.progressPercentage | round(1)) if activeRun else "0" -}}%
+          </span>
+          {%- if activeRun %} · Started: <span id="widget-started">{{ activeRun.startedAtUtc | formatDate("dd MMM yyyy HH:mm") }}</span>{%- endif %}
+        </p>
+      </div>
+
+      {# ── Throttle policy switcher ── #}
+      <div class="app-policy-switcher">
+        <h3 class="govuk-heading-s govuk-!-margin-bottom-2">Throttle policy</h3>
+        <p class="govuk-body govuk-!-margin-bottom-2">
+          Active: <span class="govuk-tag govuk-tag--grey" id="active-policy-name">
+            {{- activePolicy.name if activePolicy else "Normal (Fallback)" -}}
+          </span>
+        </p>
+        <div class="app-policy-controls">
+          <div class="govuk-form-group govuk-!-margin-bottom-0">
+            <label class="govuk-label govuk-visually-hidden" for="policy-select">Select throttle policy</label>
+            <select class="govuk-select" id="policy-select" name="policy">
+              {% for policy in policies %}
+                <option value="{{ policy.slug }}"
+                        {% if policy.isActive %}selected{% endif %}>
+                  {{ policy.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0"
+                  id="switch-policy-btn" type="button">
+            Switch policy
+          </button>
+        </div>
+        <p class="govuk-body-s app-policy-error app-hidden" id="policy-error"></p>
+        {% set ca = activePolicy.settings.cleanseAnalysis if activePolicy and activePolicy.settings else none %}
+        <p class="govuk-body-s govuk-!-margin-top-2 govuk-!-margin-bottom-0">
+          Batch: <strong id="policy-batch-size">{{ ca.pumpBatchSize if ca else "—" }} records</strong>
+          · Delay: <strong id="policy-pump-delay">{{ ca.pumpDelayMs if ca else "—" }}ms</strong>
+          · Progress every <strong id="policy-progress-interval">{{ ca.progressUpdateInterval if ca else "—" }} records</strong>
+        </p>
+      </div>
+
+      {# ── Action buttons ── #}
+      <div class="govuk-!-margin-top-4">
+        <div class="{% if not activeRun or activeRun.status != 'Cancelling' %}app-hidden{% endif %}" id="cancelling-message">
+          {{ govukInsetText({
+            text: "Cancellation in progress — waiting for current batch to complete…"
+          }) }}
+        </div>
+
+        <button class="govuk-button govuk-button--warning{% if not activeRun or activeRun.status != 'Running' %} app-hidden{% endif %}" id="cancel-analysis-btn" type="button">
+          Cancel analysis
+        </button>
+
+        <button class="govuk-button{% if activeRun %} app-hidden{% endif %}" id="start-analysis-btn" type="button">
+          Start cleanse analysis
+        </button>
+      </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Run History Table                                       #}
+    {# ═══════════════════════════════════════════════════════ #}
+    <h2 class="govuk-heading-m govuk-!-margin-top-6">Previous runs</h2>
+
+    {% if runs.length %}
+      {% set rows = [] %}
+      {% for run in runs %}
+        {% if run.status === "Completed" %}
+          {% set tag = govukTag({ text: "Completed", classes: "govuk-tag--green" }) %}
+        {% elif run.status === "Running" %}
+          {% set tag = govukTag({ text: "Running", classes: "govuk-tag--blue" }) %}
+        {% elif run.status === "Cancelling" %}
+          {% set tag = govukTag({ text: "Cancelling…", classes: "govuk-tag--yellow" }) %}
+        {% elif run.status === "Failed" %}
+          {% set tag = govukTag({ text: "Failed", classes: "govuk-tag--red" }) %}
+        {% elif run.status === "Cancelled" %}
+          {% set tag = govukTag({ text: "Cancelled", classes: "govuk-tag--orange" }) %}
+        {% else %}
+          {% set tag = govukTag({ text: run.status or "Unknown", classes: "govuk-tag--grey" }) %}
+        {% endif %}
+
+        {% if run.reportUrl %}
+          {% set reportCell = '<a href="' + run.reportUrl + '" class="govuk-link" target="_blank" rel="noopener noreferrer">Download</a>' %}
+        {% else %}
+          {% set reportCell = '—' %}
+        {% endif %}
+
+        {% set rows = (rows.push([
+          { html: '<a href="/cleanse/run/' + run.id + '" class="govuk-link">' + tag + '</a>' },
+          { text: run.startedAtUtc | formatDate("dd MMM yyyy HH:mm") if run.startedAtUtc else "—" },
+          { text: run.completedAtUtc | formatDate("dd MMM yyyy HH:mm") if run.completedAtUtc else "—" },
+          { text: run.durationMs | formatDuration if run.durationMs else "—" },
+          { text: (run.recordsAnalyzed | string) + " / " + (run.totalRecords | string) if run.totalRecords else "—" },
+          { text: run.issuesFound },
+          { text: run.issuesResolved },
+          { text: run.finalAverageRpm | round if run.finalAverageRpm else "—" },
+          { html: reportCell }
+        ]), rows) %}
+      {% endfor %}
+
+      {{ govukTable({
+        head: [
+          { text: "Status" },
+          { text: "Started" },
+          { text: "Completed" },
+          { text: "Duration" },
+          { text: "Records" },
+          { text: "Found" },
+          { text: "Resolved" },
+          { text: "Avg RPM" },
+          { text: "Report" }
+        ],
+        rows: rows
+      }) }}
+
+      {% include "partials/pagination.njk" %}
+    {% else %}
+      {% if not apiError %}
+        <p class="govuk-body">No analysis runs found.</p>
+      {% endif %}
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Danger Zone & Utilities                                 #}
+    {# ═══════════════════════════════════════════════════════ #}
+    <details class="govuk-details govuk-!-margin-top-6">
+      <summary class="govuk-details__summary">
+        <span class="govuk-details__summary-text">Danger zone</span>
+      </summary>
+      <div class="govuk-details__text">
+        {{ govukWarningText({
+          text: "These actions permanently delete data and cannot be undone.",
+          iconFallbackText: "Warning"
+        }) }}
+        <div class="govuk-button-group">
+          <form method="post" action="/cleanse/delete-data">
+            {{ govukButton({
+              text: "Delete cleanse data",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+          <form method="post" action="/cleanse/delete-metadata">
+            {{ govukButton({
+              text: "Delete cleanse metadata",
+              classes: "govuk-button--warning"
+            }) }}
+          </form>
+        </div>
+        <form method="post" action="/cleanse/test-notification" class="govuk-!-margin-top-3">
+          {{ govukButton({
+            text: "Send test notification",
+            classes: "govuk-button--secondary"
+          }) }}
+        </form>
+      </div>
+    </details>
+  </div>
+
+  {# ── Initial data for client-side JS ── #}
+  <script type="application/json" id="cleanse-initial-data">
+    {{ initialData | safe }}
+  </script>
+{% endblock %}
+
+{% block pageScripts %}
+  <script type="module" src="{{ getAssetPath('cleanse-dashboard.js') }}"></script>
+{% endblock %}

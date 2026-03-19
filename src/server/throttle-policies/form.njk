@@ -1,0 +1,160 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/input/macro.njk" import govukInput %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/error-summary/macro.njk" import govukErrorSummary %}
+{% from "govuk/components/fieldset/macro.njk" import govukFieldset %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if error %}
+    {{ govukErrorSummary({
+      titleText: "There is a problem",
+      errorList: [{ text: error, href: "#name" }]
+    }) }}
+  {% endif %}
+
+  <form method="post" novalidate>
+    {# ── Policy name ──────────────────────────────────── #}
+    {{ govukInput({
+      label: { text: "Policy name", classes: "govuk-label--s" },
+      hint: { text: "A URL-safe slug will be generated from this name." },
+      id: "name",
+      name: "name",
+      value: formValues.name if formValues,
+      classes: "govuk-input--width-20",
+      attributes: { maxlength: "100" },
+      errorMessage: { text: error } if error and "name" in error.lower()
+    }) }}
+
+    {% if isEdit %}
+      <p class="govuk-body-s govuk-hint">Slug: <code>{{ slug }}</code> (read-only)</p>
+    {% endif %}
+
+    {# ── Macro for a settings field ───────────────────── #}
+    {% macro settingsInput(section, field, label, min, max, hint) %}
+      {% set fieldName = section + "." + field %}
+      {{ govukInput({
+        label: { text: label, classes: "govuk-label--xs" },
+        hint: { text: hint if hint else (min ~ " – " ~ max) },
+        id: fieldName | replace(".", "-"),
+        name: fieldName,
+        value: formValues[fieldName] if formValues,
+        classes: "govuk-input--width-5",
+        inputmode: "numeric",
+        attributes: { min: min, max: max, type: "number", step: "1" }
+      }) }}
+    {% endmacro %}
+
+    {# ── Ingestion ────────────────────────────────────── #}
+    {% call govukFieldset({
+      legend: { text: "Ingestion", classes: "govuk-fieldset__legend--m" },
+      describedBy: "ingestion-hint"
+    }) %}
+      <p id="ingestion-hint" class="govuk-hint">Controls ETL file processing into MongoDB.</p>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("ingestion", "batchSize", "Batch Size", 1, 5000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("ingestion", "batchDelayMs", "Batch Delay (ms)", 0, 60000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("ingestion", "progressUpdateInterval", "Progress Interval", 1, 5000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("ingestion", "logInterval", "Log Interval", 1, 5000) }}
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Cleanse Analysis ─────────────────────────────── #}
+    {% call govukFieldset({
+      legend: { text: "Cleanse Analysis", classes: "govuk-fieldset__legend--m" },
+      describedBy: "cleanse-analysis-hint"
+    }) %}
+      <p id="cleanse-analysis-hint" class="govuk-hint">Controls the cleanse analysis engine pump loop.</p>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseAnalysis", "pumpBatchSize", "Pump Batch Size", 1, 5000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseAnalysis", "pumpDelayMs", "Pump Delay (ms)", 0, 60000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseAnalysis", "recordIssueDelayMs", "Record Issue Delay (ms)", 0, 60000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseAnalysis", "progressUpdateInterval", "Progress Interval", 1, 5000) }}
+        </div>
+      </div>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseAnalysis", "rpmWindowSeconds", "RPM Window (s)", 1, 3600) }}
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Cleanse Export ───────────────────────────────── #}
+    {% call govukFieldset({
+      legend: { text: "Cleanse Export", classes: "govuk-fieldset__legend--m" },
+      describedBy: "cleanse-export-hint"
+    }) %}
+      <p id="cleanse-export-hint" class="govuk-hint">Controls cleanse report CSV export streaming.</p>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseExport", "streamBatchSize", "Stream Batch Size", 1, 5000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseExport", "throttlingDelayMs", "Throttle Delay (ms)", 0, 60000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("cleanseExport", "rpmWindowSeconds", "RPM Window (s)", 1, 3600) }}
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Issue Deactivation ───────────────────────────── #}
+    {% call govukFieldset({
+      legend: { text: "Issue Deactivation", classes: "govuk-fieldset__legend--m" },
+      describedBy: "issue-deactivation-hint"
+    }) %}
+      <p id="issue-deactivation-hint" class="govuk-hint">Controls stale-issue deactivation batching.</p>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("issueDeactivation", "batchSize", "Batch Size", 1, 5000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("issueDeactivation", "throttleDelayMs", "Throttle Delay (ms)", 0, 60000) }}
+        </div>
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("issueDeactivation", "rpmWindowSeconds", "RPM Window (s)", 1, 3600) }}
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Issue Query ──────────────────────────────────── #}
+    {% call govukFieldset({
+      legend: { text: "Issue Query", classes: "govuk-fieldset__legend--m" },
+      describedBy: "issue-query-hint"
+    }) %}
+      <p id="issue-query-hint" class="govuk-hint">Controls issue streaming query batch size.</p>
+      <div class="govuk-grid-row">
+        <div class="govuk-grid-column-one-quarter">
+          {{ settingsInput("issueQuery", "streamBatchSize", "Stream Batch Size", 1, 5000) }}
+        </div>
+      </div>
+    {% endcall %}
+
+    {# ── Submit ───────────────────────────────────────── #}
+    <div class="govuk-button-group">
+      {{ govukButton({
+        text: "Update policy" if isEdit else "Create policy"
+      }) }}
+      <a href="/throttle-policies" class="govuk-link">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/holdings">Holdings</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        {{ lidFullIdentifier or "CTS" }}
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if holding %}
+    <p class="govuk-body">
+      <strong>LID:</strong> {{ lidFullIdentifier }}
+      {% if locationName %} &nbsp;|&nbsp; <strong>Location:</strong> {{ locationName }}{% endif %}
+      {% if timestamp %} &nbsp;|&nbsp; <span class="govuk-hint govuk-!-display-inline govuk-!-margin-0">{{ timestamp | formatDate }}</span>{% endif %}
+    </p>
+
+    <h2 class="govuk-heading-m">Holding details</h2>
+
+    {% set summaryRows = [] %}
+    {% for field in holdingFields %}
+      {% set displayValue %}
+        {%- if field.value is defined and field.value is not null and field.value is mapping -%}
+          <pre class="govuk-body-s govuk-!-margin-0" style="white-space:pre-wrap">{{ field.value | dump(2) }}</pre>
+        {%- elif field.value is defined and field.value is not null and field.value is iterable and field.value is not string -%}
+          {{ field.value | join(", ") if field.value.length else "—" }}
+        {%- elif field.value === true -%}
+          Yes
+        {%- elif field.value === false -%}
+          No
+        {%- elif field.value is defined and field.value is not null -%}
+          {{ field.value }}
+        {%- else -%}
+          <span class="govuk-hint govuk-!-margin-0">—</span>
+        {%- endif -%}
+      {% endset %}
+      {% set summaryRows = (summaryRows.push({
+        key: { text: field.key },
+        value: { html: displayValue }
+      }), summaryRows) %}
+    {% endfor %}
+
+    {{ govukSummaryList({ rows: summaryRows }) }}
+
+    {% if keepers and keepers.data and keepers.data.length %}
+      <h2 class="govuk-heading-m">Keepers ({{ keepers.count or keepers.data.length }})</h2>
+
+      {% set keeperColumns = [] %}
+      {% for key in keepers.data[0] | keys %}
+        {% if key !== '_id' and not key.startsWith('@') %}
+          {% set keeperColumns = (keeperColumns.push(key), keeperColumns) %}
+        {% endif %}
+      {% endfor %}
+
+      <div class="app-scrollable-table-container">
+        <table class="govuk-table app-scrollable-table">
+          <thead class="govuk-table__head">
+            <tr class="govuk-table__row">
+              {% for col in keeperColumns %}
+                <th scope="col" class="govuk-table__header app-table__header--nowrap">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody class="govuk-table__body">
+            {% for row in keepers.data %}
+              <tr class="govuk-table__row">
+                {% for col in keeperColumns %}
+                  <td class="govuk-table__cell app-table__cell--nowrap">
+                    {%- set val = row[col] -%}
+                    {%- if val is defined and val is not null and val is mapping -%}{{ val | dump }}{%- elif val is defined and val is not null and val is iterable and val is not string -%}{{ val | join(", ") }}{%- elif val is defined and val is not null -%}{{ val }}{%- else -%}—{%- endif -%}
+                  </td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% elif keepers %}
+      <h2 class="govuk-heading-m">Keepers</h2>
+      <p class="govuk-body">No keepers found.</p>
+    {% endif %}
+
+    {{ govukDetails({
+      summaryText: "View raw JSON",
+      html: '<pre class="govuk-body-s" style="overflow-x:auto;max-height:500px"><code>' + (holding | dump(2)) + '</code></pre>'
+    }) }}
+  {% endif %}
+{% endblock %}

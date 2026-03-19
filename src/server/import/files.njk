@@ -1,0 +1,76 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% block containerStart %}
+  <nav class="govuk-breadcrumbs" aria-label="Breadcrumb">
+    <ol class="govuk-breadcrumbs__list">
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/">Home</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import">Imports</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item">
+        <a class="govuk-breadcrumbs__link" href="/import/{{ importId }}">{{ importId | truncate(12, true, "…") }}</a>
+      </li>
+      <li class="govuk-breadcrumbs__list-item" aria-current="page">
+        Files
+      </li>
+    </ol>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  {{ appHeading({
+    text: heading
+  }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if files and files.length %}
+    {% set rows = [] %}
+    {% for file in files %}
+      {% if file.status === "Ingested" %}
+        {% set fileTag = govukTag({ text: file.status, classes: "govuk-tag--green" }) %}
+      {% elif file.status === "Acquired" or file.status === "Discovered" %}
+        {% set fileTag = govukTag({ text: file.status, classes: "govuk-tag--blue" }) %}
+      {% elif file.status === "Failed" %}
+        {% set fileTag = govukTag({ text: file.status, classes: "govuk-tag--red" }) %}
+      {% else %}
+        {% set fileTag = govukTag({ text: file.status or "Unknown", classes: "govuk-tag--grey" }) %}
+      {% endif %}
+
+      {% set rows = (rows.push([
+        { text: file.fileName or "—" },
+        { text: file.datasetName or "—" },
+        { text: file.fileSize | formatFileSize if file.fileSize else "—" },
+        { html: fileTag },
+        { text: file.error or "—" }
+      ]), rows) %}
+    {% endfor %}
+
+    {{ govukTable({
+      head: [
+        { text: "File name" },
+        { text: "Dataset" },
+        { text: "Size" },
+        { text: "Status" },
+        { text: "Error" }
+      ],
+      rows: rows
+    }) }}
+  {% else %}
+    {% if not apiError %}
+      <p class="govuk-body">No files found for this import.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
