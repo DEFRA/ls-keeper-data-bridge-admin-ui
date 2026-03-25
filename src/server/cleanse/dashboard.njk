@@ -187,6 +187,12 @@
         <button class="govuk-button{% if activeRun %} app-hidden{% endif %}" id="start-analysis-btn" type="button">
           Start cleanse analysis
         </button>
+
+        <a href="{% if activeRun %}/cleanse/run/{{ activeRun.id }}/report{% else %}#{% endif %}"
+           class="govuk-link govuk-!-margin-left-3{% if not activeRun %} app-hidden{% endif %}"
+           id="view-report-link">
+          View full report
+        </a>
       </div>
     </div>
 
@@ -218,6 +224,8 @@
           {% set reportCell = '—' %}
         {% endif %}
 
+        {% set detailsCell = '<a href="/cleanse/run/' + run.id + '/report" class="govuk-link">Full report</a>' %}
+
         {% set rows = (rows.push([
           { html: '<a href="/cleanse/run/' + run.id + '" class="govuk-link">' + tag + '</a>' },
           { text: run.startedAtUtc | formatDate("dd MMM yyyy HH:mm") if run.startedAtUtc else "—" },
@@ -227,7 +235,8 @@
           { text: run.issuesFound },
           { text: run.issuesResolved },
           { text: run.finalAverageRpm | round if run.finalAverageRpm else "—" },
-          { html: reportCell }
+          { html: reportCell },
+          { html: detailsCell }
         ]), rows) %}
       {% endfor %}
 
@@ -241,7 +250,8 @@
           { text: "Found" },
           { text: "Resolved" },
           { text: "Avg RPM" },
-          { text: "Report" }
+          { text: "Report" },
+          { text: "Details" }
         ],
         rows: rows
       }) }}

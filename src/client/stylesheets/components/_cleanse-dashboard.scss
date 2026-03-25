@@ -1,4 +1,4 @@
-@use "govuk-frontend" as *;
+@use 'govuk-frontend' as *;
 
 // ── Dashboard Card ────────────────────────────────────────
 .app-dashboard-card {
@@ -25,7 +25,7 @@
 }
 
 .app-metric-tile {
-  background: govuk-colour("black", $variant: "tint-95");
+  background: govuk-colour('black', $variant: 'tint-95');
   padding: govuk-spacing(3);
   border-left: 4px solid $govuk-brand-colour;
 
@@ -45,13 +45,13 @@
 // ── Progress Bar ──────────────────────────────────────────
 .app-progress-bar {
   height: 24px;
-  background: govuk-colour("black", $variant: "tint-95");
+  background: govuk-colour('black', $variant: 'tint-95');
   border-radius: 2px;
   overflow: hidden;
 
   &__fill {
     height: 100%;
-    background: govuk-colour("blue");
+    background: govuk-colour('blue');
     transition: width 0.5s ease;
     min-width: 0;
   }
@@ -73,4 +73,16 @@
 
 .app-policy-error {
   color: $govuk-error-colour;
+}
+
+// ── Timings Tree ──────────────────────────────────────────
+.app-timings-tree {
+  @include govuk-font($size: 16);
+  font-family: monospace;
+  background: govuk-colour('black', $variant: 'tint-95');
+  padding: govuk-spacing(3);
+  border: 1px solid $govuk-border-colour;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
 }

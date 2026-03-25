@@ -9,7 +9,25 @@ const breadcrumbs = [
   { text: 'Cleanse', href: '/cleanse' }
 ]
 
-// ─── Shared helper ────────────────────────────────────────
+// ─── Shared helpers ───────────────────────────────────────
+
+/**
+ * Recursively flatten a TimingNode tree into a flat array for template rendering.
+ * Each entry carries `depth` so the template can indent accordingly.
+ */
+export function flattenTimings(node, depth = 0) {
+  if (!node || typeof node !== 'object') return []
+  const entry = {
+    name: node.name ?? '(unnamed)',
+    elapsed: node.elapsed ?? '—',
+    elapsedMs: node.elapsedMs ?? 0,
+    depth
+  }
+  const children = Array.isArray(node.children)
+    ? node.children.flatMap((child) => flattenTimings(child, depth + 1))
+    : []
+  return [entry, ...children]
+}
 
 function jsonResponse(h, result, successCode = 200) {
   if (result.status === 204) {
@@ -103,6 +121,48 @@ export const cleanseRunDetailController = {
       heading: 'Analysis run detail',
       breadcrumbs: [...breadcrumbs, { text: operationId.substring(0, 8) }],
       run: result.data
+    })
+  }
+}
+
+/**
+ * Cleanse run — full progress report page.
+ */
+export const cleanseRunReportController = {
+  async handler(request, h) {
+    const { operationId } = request.params
+
+    const result = await apiRequest(
+      `/api/cleanse/run/${encodeURIComponent(operationId)}`
+    )
+
+    if (!result.ok) {
+      return h.view('cleanse/report', {
+        pageTitle: 'Report not found',
+        heading: 'Analysis run report',
+        breadcrumbs: [...breadcrumbs, { text: 'Report' }],
+        apiError: result.data?.message ?? 'Run not found',
+        run: null,
+        timingsTree: []
+      })
+    }
+
+    const run = result.data
+    const timingsTree = flattenTimings(run.timings)
+
+    return h.view('cleanse/report', {
+      pageTitle: `Report — ${operationId.substring(0, 8)}`,
+      heading: 'Analysis run report',
+      breadcrumbs: [
+        ...breadcrumbs,
+        {
+          text: operationId.substring(0, 8),
+          href: `/cleanse/run/${encodeURIComponent(operationId)}`
+        },
+        { text: 'Report' }
+      ],
+      run,
+      timingsTree
     })
   }
 }

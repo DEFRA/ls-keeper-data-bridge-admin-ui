@@ -138,15 +138,22 @@ class CleanseDashboard {
     this.fetchInFlight = true
 
     try {
-      const [runsRes, policiesRes] = await Promise.all([
-        fetch('/cleanse/api/runs?skip=0&top=1'),
+      // When we already know the active run ID, fetch the full detail DTO
+      // (includes live stats, phases, timings). Fall back to the list
+      // endpoint only when discovering whether a run exists.
+      const activeId = this.activeRun?.id
+      const runFetchUrl = activeId
+        ? `/cleanse/api/run/${encodeURIComponent(activeId)}`
+        : '/cleanse/api/runs?skip=0&top=1'
+
+      const [runRes, policiesRes] = await Promise.all([
+        fetch(runFetchUrl),
         fetch('/cleanse/api/policies')
       ])
 
-      if (runsRes.ok) {
-        const runsData = await runsRes.json()
-        const runs = runsData.runs ?? []
-        const latestRun = runs[0] ?? null
+      if (runRes.ok) {
+        const data = await runRes.json()
+        const latestRun = activeId ? data : ((data.runs ?? [])[0] ?? null)
 
         if (
           latestRun &&
@@ -206,8 +213,14 @@ class CleanseDashboard {
       const data = await res.json().catch(() => ({}))
 
       if (res.status === 202 || res.ok) {
+        // Seed activeRun with the operation ID so the first poll
+        // hits the detail endpoint instead of the list endpoint
+        const operationId = data.operationId ?? null
+        if (operationId) {
+          this.activeRun = { id: operationId, status: 'Running' }
+        }
         this.showNotification(
-          'Analysis started. Operation ID: ' + (data.operationId ?? 'unknown'),
+          'Analysis started. Operation ID: ' + (operationId ?? 'unknown'),
           'success'
         )
         this.startPolling()
@@ -375,6 +388,13 @@ class CleanseDashboard {
         hide('cancel-analysis-btn')
         show('cancelling-message')
       }
+
+      // Report link
+      const reportLink = document.getElementById('view-report-link')
+      if (reportLink) {
+        reportLink.href = `/cleanse/run/${encodeURIComponent(run.id)}/report`
+        show('view-report-link')
+      }
     } else {
       // Idle state
       show('idle-message')
@@ -388,6 +408,8 @@ class CleanseDashboard {
         statusTag.textContent = 'Idle'
         statusTag.className = 'govuk-tag govuk-tag--grey'
       }
+
+      hide('view-report-link')
     }
   }
 

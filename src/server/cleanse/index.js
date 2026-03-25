@@ -1,6 +1,7 @@
 import {
   cleanseDashboardController,
   cleanseRunDetailController,
+  cleanseRunReportController,
   startAnalysisController,
   deleteDataController,
   deleteMetadataController,
@@ -33,6 +34,11 @@ const cleanse = {
           method: 'GET',
           path: '/cleanse/run/{operationId}',
           ...cleanseRunDetailController
+        },
+        {
+          method: 'GET',
+          path: '/cleanse/run/{operationId}/report',
+          ...cleanseRunReportController
         },
 
         // ── Form POST routes (redirect-based) ──

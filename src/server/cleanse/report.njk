@@ -1,0 +1,270 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if run %}
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      <a href="/cleanse/run/{{ run.id }}/report" class="govuk-link">Refresh this page</a>
+    </p>
+
+    {# ── Status tag ── #}
+    {% if run.status === "Completed" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--green" }) %}
+    {% elif run.status === "Running" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--blue" }) %}
+    {% elif run.status === "Cancelling" %}
+      {% set statusTag = govukTag({ text: "Cancelling…", classes: "govuk-tag--yellow" }) %}
+    {% elif run.status === "Failed" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--red" }) %}
+    {% elif run.status === "Cancelled" %}
+      {% set statusTag = govukTag({ text: run.status, classes: "govuk-tag--orange" }) %}
+    {% else %}
+      {% set statusTag = govukTag({ text: run.status or "Unknown", classes: "govuk-tag--grey" }) %}
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 1 — Operation Summary                          #}
+    {# ═══════════════════════════════════════════════════════ #}
+    <h2 class="govuk-heading-m">Operation summary</h2>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Operation ID" },
+          value: { text: run.id }
+        },
+        {
+          key: { text: "Status" },
+          value: { html: statusTag }
+        },
+        {
+          key: { text: "Description" },
+          value: { text: run.statusDescription or "—" }
+        },
+        {
+          key: { text: "Started" },
+          value: { text: run.startedAtUtc | formatDate if run.startedAtUtc else "—" }
+        },
+        {
+          key: { text: "Completed" },
+          value: { text: run.completedAtUtc | formatDate if run.completedAtUtc else "—" }
+        },
+        {
+          key: { text: "Duration" },
+          value: { text: run.durationMs | formatDuration if run.durationMs else "—" }
+        },
+        {
+          key: { text: "Current phase" },
+          value: { text: run.currentPhase or "—" }
+        },
+        {
+          key: { text: "Progress" },
+          value: { text: (run.progressPercentage | round(1)) + "%" if run.progressPercentage is defined else "—" }
+        },
+        {
+          key: { text: "Error" },
+          value: { text: run.error or "—" }
+        }
+      ]
+    }) }}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 2 — Record Counts                              #}
+    {# ═══════════════════════════════════════════════════════ #}
+    <h2 class="govuk-heading-m">Record counts</h2>
+
+    {{ govukSummaryList({
+      rows: [
+        {
+          key: { text: "Total records" },
+          value: { text: run.totalRecords }
+        },
+        {
+          key: { text: "Records analysed" },
+          value: { text: run.recordsAnalyzed }
+        },
+        {
+          key: { text: "Issues found" },
+          value: { text: run.issuesFound }
+        },
+        {
+          key: { text: "Issues resolved" },
+          value: { text: run.issuesResolved }
+        }
+      ]
+    }) }}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 3 — Performance Stats                          #}
+    {# ═══════════════════════════════════════════════════════ #}
+    {% if run.stats %}
+      <h2 class="govuk-heading-m">Performance statistics</h2>
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Current RPM" },
+            value: { text: (run.stats.currentRpm | round) + " records/min" if run.stats.currentRpm is defined else "—" }
+          },
+          {
+            key: { text: "Average RPM" },
+            value: { text: (run.stats.averageRpm | round) + " records/min" if run.stats.averageRpm is defined else "—" }
+          },
+          {
+            key: { text: "Projected completion" },
+            value: { text: run.stats.projectedEndUtc | formatDate if run.stats.projectedEndUtc else "—" }
+          },
+          {
+            key: { text: "Time remaining" },
+            value: { text: (run.stats.estimatedDurationRemainingSeconds * 1000) | formatDuration if run.stats.estimatedDurationRemainingSeconds is defined else "—" }
+          },
+          {
+            key: { text: "Throttle policy" },
+            value: { text: run.stats.throttlePolicyName or "—" }
+          },
+          {
+            key: { text: "Batch size" },
+            value: { text: (run.stats.pumpBatchSize | string) + " records" if run.stats.pumpBatchSize is defined else "—" }
+          },
+          {
+            key: { text: "Pump delay" },
+            value: { text: (run.stats.pumpDelayMs | string) + "ms" if run.stats.pumpDelayMs is defined else "—" }
+          }
+        ]
+      }) }}
+    {% elif run.finalAverageRpm is defined and run.finalAverageRpm %}
+      <h2 class="govuk-heading-m">Performance statistics</h2>
+
+      {{ govukSummaryList({
+        rows: [
+          {
+            key: { text: "Final average RPM" },
+            value: { text: (run.finalAverageRpm | round) + " records/min" }
+          }
+        ]
+      }) }}
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 4 — Phase Breakdown                            #}
+    {# ═══════════════════════════════════════════════════════ #}
+    {% if run.phases and run.phases.length %}
+      <h2 class="govuk-heading-m">Phase breakdown</h2>
+
+      {% for phase in run.phases %}
+        {% if phase.status === "Completed" %}
+          {% set phaseTag = govukTag({ text: phase.status, classes: "govuk-tag--green" }) %}
+        {% elif phase.status === "Running" %}
+          {% set phaseTag = govukTag({ text: phase.status, classes: "govuk-tag--blue" }) %}
+        {% elif phase.status === "NotStarted" %}
+          {% set phaseTag = govukTag({ text: "Not started", classes: "govuk-tag--grey" }) %}
+        {% else %}
+          {% set phaseTag = govukTag({ text: phase.status or "Unknown", classes: "govuk-tag--grey" }) %}
+        {% endif %}
+
+        <h3 class="govuk-heading-s govuk-!-margin-bottom-2">{{ phase.name }}</h3>
+
+        {% set phaseRows = [
+          {
+            key: { text: "Status" },
+            value: { html: phaseTag }
+          },
+          {
+            key: { text: "Progress" },
+            value: { text: (phase.percentage | round(1)) + "%" if phase.percentage is defined else "—" }
+          },
+          {
+            key: { text: "Records" },
+            value: { text: (phase.recordsProcessed | string) + " / " + (phase.totalRecords | string) if phase.totalRecords else "—" }
+          },
+          {
+            key: { text: "Started" },
+            value: { text: phase.startedAtUtc | formatDate if phase.startedAtUtc else "—" }
+          },
+          {
+            key: { text: "Completed" },
+            value: { text: phase.completedAtUtc | formatDate if phase.completedAtUtc else "—" }
+          },
+          {
+            key: { text: "Duration" },
+            value: { text: phase.durationMs | formatDuration if phase.durationMs else "—" }
+          }
+        ] %}
+
+        {% if phase.stats %}
+          {% set phaseRows = (phaseRows.push(
+            {
+              key: { text: "Current RPM" },
+              value: { text: (phase.stats.currentRpm | round) + " records/min" if phase.stats.currentRpm is defined else "—" }
+            },
+            {
+              key: { text: "Average RPM" },
+              value: { text: (phase.stats.averageRpm | round) + " records/min" if phase.stats.averageRpm is defined else "—" }
+            },
+            {
+              key: { text: "Projected completion" },
+              value: { text: phase.stats.projectedEndUtc | formatDate if phase.stats.projectedEndUtc else "—" }
+            }
+          ), phaseRows) %}
+        {% endif %}
+
+        {{ govukSummaryList({ rows: phaseRows }) }}
+      {% endfor %}
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 5 — Timings Tree                               #}
+    {# ═══════════════════════════════════════════════════════ #}
+    {% if timingsTree and timingsTree.length %}
+      <h2 class="govuk-heading-m">Timings</h2>
+
+      <pre class="app-timings-tree"><code>{% for t in timingsTree %}
+{{ "  " * t.depth }}{{ t.name | truncate(50, true, "…") }}{{ " " * (50 - (t.name | length) - (t.depth * 2)) if (50 - (t.name | length) - (t.depth * 2)) > 0 else " " }}{{ t.elapsed }}
+{%- endfor %}</code></pre>
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════════════ #}
+    {# Section 6 — Report Download                            #}
+    {# ═══════════════════════════════════════════════════════ #}
+    {% if run.reportUrl %}
+      <h2 class="govuk-heading-m">Download report</h2>
+      <p class="govuk-body">
+        <a href="{{ run.reportUrl }}" class="govuk-link" target="_blank" rel="noopener noreferrer">Download report</a>
+      </p>
+      <form method="post" action="/cleanse/run/{{ run.id }}/regenerate-url">
+        {{ govukButton({
+          text: "Regenerate report URL",
+          classes: "govuk-button--secondary"
+        }) }}
+      </form>
+    {% elif run.reportObjectKey %}
+      <h2 class="govuk-heading-m">Download report</h2>
+      <p class="govuk-body">Report available but URL has expired.</p>
+      <form method="post" action="/cleanse/run/{{ run.id }}/regenerate-url">
+        {{ govukButton({
+          text: "Regenerate report URL",
+          classes: "govuk-button--secondary"
+        }) }}
+      </form>
+    {% endif %}
+
+    <p class="govuk-body govuk-!-margin-top-6">
+      <a href="/cleanse" class="govuk-link">Back to dashboard</a>
+    </p>
+  {% endif %}
+{% endblock %}
