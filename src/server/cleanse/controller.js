@@ -12,19 +12,26 @@ const breadcrumbs = [
 // ─── Shared helpers ───────────────────────────────────────
 
 /**
- * Recursively flatten a TimingNode tree into a flat array for template rendering.
+ * Recursively flatten an OperationNode tree into a flat array for template rendering.
  * Each entry carries `depth` so the template can indent accordingly.
  */
-export function flattenTimings(node, depth = 0) {
+export function flattenOperationTree(node, depth = 0) {
   if (!node || typeof node !== 'object') return []
   const entry = {
     name: node.name ?? '(unnamed)',
+    status: node.status ?? null,
+    description: node.description ?? null,
+    percentComplete: node.percentComplete ?? null,
+    processedCount: node.processedCount ?? null,
+    totalRecords: node.totalRecords ?? null,
     elapsed: node.elapsed ?? '—',
     elapsedMs: node.elapsedMs ?? 0,
+    currentRpm: node.currentRecordsPerMinute ?? null,
+    averageRpm: node.averageRecordsPerMinute ?? null,
     depth
   }
   const children = Array.isArray(node.children)
-    ? node.children.flatMap((child) => flattenTimings(child, depth + 1))
+    ? node.children.flatMap((child) => flattenOperationTree(child, depth + 1))
     : []
   return [entry, ...children]
 }
@@ -143,12 +150,12 @@ export const cleanseRunReportController = {
         breadcrumbs: [...breadcrumbs, { text: 'Report' }],
         apiError: result.data?.message ?? 'Run not found',
         run: null,
-        timingsTree: []
+        operationTree: []
       })
     }
 
     const run = result.data
-    const timingsTree = flattenTimings(run.timings)
+    const operationTree = flattenOperationTree(run.progress)
 
     return h.view('cleanse/report', {
       pageTitle: `Report — ${operationId.substring(0, 8)}`,
@@ -162,7 +169,7 @@ export const cleanseRunReportController = {
         { text: 'Report' }
       ],
       run,
-      timingsTree
+      operationTree
     })
   }
 }

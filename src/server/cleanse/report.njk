@@ -70,7 +70,7 @@
         },
         {
           key: { text: "Current phase" },
-          value: { text: run.currentPhase or "—" }
+          value: { text: run.progress.children | selectattr("status", "equalto", "in-progress") | first | attr("name") if run.progress and run.progress.children else "—" }
         },
         {
           key: { text: "Progress" },
@@ -112,38 +112,30 @@
     {# ═══════════════════════════════════════════════════════ #}
     {# Section 3 — Performance Stats                          #}
     {# ═══════════════════════════════════════════════════════ #}
-    {% if run.stats %}
+    {% if run.progress %}
       <h2 class="govuk-heading-m">Performance statistics</h2>
 
       {{ govukSummaryList({
         rows: [
           {
             key: { text: "Current RPM" },
-            value: { text: (run.stats.currentRpm | round) + " records/min" if run.stats.currentRpm is defined else "—" }
+            value: { text: (run.progress.currentRecordsPerMinute | round) + " records/min" if run.progress.currentRecordsPerMinute is defined else "—" }
           },
           {
             key: { text: "Average RPM" },
-            value: { text: (run.stats.averageRpm | round) + " records/min" if run.stats.averageRpm is defined else "—" }
+            value: { text: (run.progress.averageRecordsPerMinute | round) + " records/min" if run.progress.averageRecordsPerMinute is defined else "—" }
           },
           {
             key: { text: "Projected completion" },
-            value: { text: run.stats.projectedEndUtc | formatDate if run.stats.projectedEndUtc else "—" }
+            value: { text: run.progress.projectedEndTimeUtc | formatDate if run.progress.projectedEndTimeUtc else "—" }
           },
           {
             key: { text: "Time remaining" },
-            value: { text: (run.stats.estimatedDurationRemainingSeconds * 1000) | formatDuration if run.stats.estimatedDurationRemainingSeconds is defined else "—" }
+            value: { text: run.progress.projectedRemainingMs | formatDuration if run.progress.projectedRemainingMs is defined else "—" }
           },
           {
-            key: { text: "Throttle policy" },
-            value: { text: run.stats.throttlePolicyName or "—" }
-          },
-          {
-            key: { text: "Batch size" },
-            value: { text: (run.stats.pumpBatchSize | string) + " records" if run.stats.pumpBatchSize is defined else "—" }
-          },
-          {
-            key: { text: "Pump delay" },
-            value: { text: (run.stats.pumpDelayMs | string) + "ms" if run.stats.pumpDelayMs is defined else "—" }
+            key: { text: "Elapsed" },
+            value: { text: run.progress.elapsed or "—" }
           }
         ]
       }) }}
@@ -163,16 +155,18 @@
     {# ═══════════════════════════════════════════════════════ #}
     {# Section 4 — Phase Breakdown                            #}
     {# ═══════════════════════════════════════════════════════ #}
-    {% if run.phases and run.phases.length %}
+    {% if run.progress and run.progress.children and run.progress.children.length %}
       <h2 class="govuk-heading-m">Phase breakdown</h2>
 
-      {% for phase in run.phases %}
-        {% if phase.status === "Completed" %}
-          {% set phaseTag = govukTag({ text: phase.status, classes: "govuk-tag--green" }) %}
-        {% elif phase.status === "Running" %}
-          {% set phaseTag = govukTag({ text: phase.status, classes: "govuk-tag--blue" }) %}
-        {% elif phase.status === "NotStarted" %}
+      {% for phase in run.progress.children %}
+        {% if phase.status === "completed" %}
+          {% set phaseTag = govukTag({ text: "Completed", classes: "govuk-tag--green" }) %}
+        {% elif phase.status === "in-progress" %}
+          {% set phaseTag = govukTag({ text: "In progress", classes: "govuk-tag--blue" }) %}
+        {% elif phase.status === "not-started" %}
           {% set phaseTag = govukTag({ text: "Not started", classes: "govuk-tag--grey" }) %}
+        {% elif phase.status === "failed" %}
+          {% set phaseTag = govukTag({ text: "Failed", classes: "govuk-tag--red" }) %}
         {% else %}
           {% set phaseTag = govukTag({ text: phase.status or "Unknown", classes: "govuk-tag--grey" }) %}
         {% endif %}
@@ -186,39 +180,39 @@
           },
           {
             key: { text: "Progress" },
-            value: { text: (phase.percentage | round(1)) + "%" if phase.percentage is defined else "—" }
+            value: { text: (phase.percentComplete | round(1)) + "%" if phase.percentComplete is defined else "—" }
           },
           {
             key: { text: "Records" },
-            value: { text: (phase.recordsProcessed | string) + " / " + (phase.totalRecords | string) if phase.totalRecords else "—" }
+            value: { text: (phase.processedCount | string) + " / " + (phase.totalRecords | string) if phase.totalRecords else "—" }
           },
           {
-            key: { text: "Started" },
-            value: { text: phase.startedAtUtc | formatDate if phase.startedAtUtc else "—" }
-          },
-          {
-            key: { text: "Completed" },
-            value: { text: phase.completedAtUtc | formatDate if phase.completedAtUtc else "—" }
+            key: { text: "Elapsed" },
+            value: { text: phase.elapsed or "—" }
           },
           {
             key: { text: "Duration" },
-            value: { text: phase.durationMs | formatDuration if phase.durationMs else "—" }
+            value: { text: phase.elapsedMs | formatDuration if phase.elapsedMs else "—" }
+          },
+          {
+            key: { text: "Current RPM" },
+            value: { text: (phase.currentRecordsPerMinute | round) + " records/min" if phase.currentRecordsPerMinute is defined else "—" }
+          },
+          {
+            key: { text: "Average RPM" },
+            value: { text: (phase.averageRecordsPerMinute | round) + " records/min" if phase.averageRecordsPerMinute is defined else "—" }
+          },
+          {
+            key: { text: "Projected completion" },
+            value: { text: phase.projectedEndTimeUtc | formatDate if phase.projectedEndTimeUtc else "—" }
           }
         ] %}
 
-        {% if phase.stats %}
+        {% if phase.description %}
           {% set phaseRows = (phaseRows.push(
             {
-              key: { text: "Current RPM" },
-              value: { text: (phase.stats.currentRpm | round) + " records/min" if phase.stats.currentRpm is defined else "—" }
-            },
-            {
-              key: { text: "Average RPM" },
-              value: { text: (phase.stats.averageRpm | round) + " records/min" if phase.stats.averageRpm is defined else "—" }
-            },
-            {
-              key: { text: "Projected completion" },
-              value: { text: phase.stats.projectedEndUtc | formatDate if phase.stats.projectedEndUtc else "—" }
+              key: { text: "Description" },
+              value: { text: phase.description }
             }
           ), phaseRows) %}
         {% endif %}
@@ -230,11 +224,11 @@
     {# ═══════════════════════════════════════════════════════ #}
     {# Section 5 — Timings Tree                               #}
     {# ═══════════════════════════════════════════════════════ #}
-    {% if timingsTree and timingsTree.length %}
-      <h2 class="govuk-heading-m">Timings</h2>
+    {% if operationTree and operationTree.length %}
+      <h2 class="govuk-heading-m">Operation tree</h2>
 
-      <pre class="app-timings-tree"><code>{% for t in timingsTree %}
-{{ "  " * t.depth }}{{ t.name | truncate(50, true, "…") }}{{ " " * (50 - (t.name | length) - (t.depth * 2)) if (50 - (t.name | length) - (t.depth * 2)) > 0 else " " }}{{ t.elapsed }}
+      <pre class="app-timings-tree"><code>{% for t in operationTree %}
+{{ "  " * t.depth }}{{ t.name | truncate(40, true, "…") }}{{ " " * (40 - (t.name | length) - (t.depth * 2)) if (40 - (t.name | length) - (t.depth * 2)) > 0 else " " }}{{ t.status | default("—", true) | truncate(12, true, "") }}  {{ t.elapsed }}{% if t.percentComplete is not none %}  {{ t.percentComplete | round(1) }}%{% endif %}{% if t.averageRpm is not none %}  {{ t.averageRpm | round }} rpm{% endif %}
 {%- endfor %}</code></pre>
     {% endif %}
 

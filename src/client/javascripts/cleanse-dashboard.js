@@ -333,30 +333,30 @@ class CleanseDashboard {
         }`
       }
 
-      // Real-time metrics
-      const stats = run.stats
+      // Real-time metrics from the OperationNode progress tree
+      const progress = run.progress
       setText(
         'metric-current-rpm',
-        stats?.currentRpm != null
-          ? formatNumber(stats.currentRpm) + ' records/min'
+        progress?.currentRecordsPerMinute != null
+          ? formatNumber(progress.currentRecordsPerMinute) + ' records/min'
           : 'Calculating…'
       )
       setText(
         'metric-average-rpm',
-        stats?.averageRpm != null
-          ? formatNumber(stats.averageRpm) + ' records/min'
+        progress?.averageRecordsPerMinute != null
+          ? formatNumber(progress.averageRecordsPerMinute) + ' records/min'
           : 'Calculating…'
       )
       setText(
         'metric-time-remaining',
-        stats?.estimatedDurationRemainingSeconds != null
-          ? formatDurationSeconds(stats.estimatedDurationRemainingSeconds)
+        progress?.projectedRemainingMs != null
+          ? formatDurationSeconds(progress.projectedRemainingMs / 1000)
           : 'Calculating…'
       )
       setText(
         'metric-est-complete',
-        stats?.projectedEndUtc
-          ? formatDate(stats.projectedEndUtc)
+        progress?.projectedEndTimeUtc
+          ? formatDate(progress.projectedEndTimeUtc)
           : 'Calculating…'
       )
       setText('metric-issues-found', formatNumber(run.issuesFound))

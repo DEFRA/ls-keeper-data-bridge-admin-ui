@@ -69,32 +69,32 @@
         <div class="app-metric-tile">
           <span class="app-metric-tile__label">Current speed</span>
           <span class="app-metric-tile__value" id="metric-current-rpm">
-            {%- if activeRun and activeRun.stats and activeRun.stats.currentRpm is defined -%}
-              {{ activeRun.stats.currentRpm | round }} records/min
+            {%- if activeRun and activeRun.progress and activeRun.progress.currentRecordsPerMinute is defined -%}
+              {{ activeRun.progress.currentRecordsPerMinute | round }} records/min
             {%- else -%}Calculating…{%- endif -%}
           </span>
         </div>
         <div class="app-metric-tile">
           <span class="app-metric-tile__label">Average speed</span>
           <span class="app-metric-tile__value" id="metric-average-rpm">
-            {%- if activeRun and activeRun.stats and activeRun.stats.averageRpm is defined -%}
-              {{ activeRun.stats.averageRpm | round }} records/min
+            {%- if activeRun and activeRun.progress and activeRun.progress.averageRecordsPerMinute is defined -%}
+              {{ activeRun.progress.averageRecordsPerMinute | round }} records/min
             {%- else -%}Calculating…{%- endif -%}
           </span>
         </div>
         <div class="app-metric-tile">
           <span class="app-metric-tile__label">Time remaining</span>
           <span class="app-metric-tile__value" id="metric-time-remaining">
-            {%- if activeRun and activeRun.stats and activeRun.stats.estimatedDurationRemainingSeconds is defined -%}
-              {{ (activeRun.stats.estimatedDurationRemainingSeconds * 1000) | formatDuration }}
+            {%- if activeRun and activeRun.progress and activeRun.progress.projectedRemainingMs is defined -%}
+              {{ activeRun.progress.projectedRemainingMs | formatDuration }}
             {%- else -%}Calculating…{%- endif -%}
           </span>
         </div>
         <div class="app-metric-tile">
           <span class="app-metric-tile__label">Est. completion</span>
           <span class="app-metric-tile__value" id="metric-est-complete">
-            {%- if activeRun and activeRun.stats and activeRun.stats.projectedEndUtc -%}
-              {{ activeRun.stats.projectedEndUtc | formatDate("dd MMM yyyy HH:mm") }}
+            {%- if activeRun and activeRun.progress and activeRun.progress.projectedEndTimeUtc -%}
+              {{ activeRun.progress.projectedEndTimeUtc | formatDate("dd MMM yyyy HH:mm") }}
             {%- else -%}Calculating…{%- endif -%}
           </span>
         </div>
