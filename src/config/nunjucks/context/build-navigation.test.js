@@ -53,6 +53,11 @@ describe('#buildNavigation', () => {
         current: false,
         text: 'External Catalogue',
         href: '/external-catalogue'
+      },
+      {
+        current: false,
+        text: 'Backend Health',
+        href: '/backend-health'
       }
     ])
   })
@@ -103,6 +108,11 @@ describe('#buildNavigation', () => {
         current: false,
         text: 'External Catalogue',
         href: '/external-catalogue'
+      },
+      {
+        current: false,
+        text: 'Backend Health',
+        href: '/backend-health'
       }
     ])
   })

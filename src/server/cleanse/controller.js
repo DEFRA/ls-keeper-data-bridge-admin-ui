@@ -17,6 +17,7 @@ const breadcrumbs = [
  */
 export function flattenOperationTree(node, depth = 0) {
   if (!node || typeof node !== 'object') return []
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0
   const entry = {
     name: node.name ?? '(unnamed)',
     status: node.status ?? null,
@@ -28,9 +29,12 @@ export function flattenOperationTree(node, depth = 0) {
     elapsedMs: node.elapsedMs ?? 0,
     currentRpm: node.currentRecordsPerMinute ?? null,
     averageRpm: node.averageRecordsPerMinute ?? null,
-    depth
+    projectedEnd: node.projectedEndTimeUtc ?? null,
+    projectedRemainingMs: node.projectedRemainingMs ?? null,
+    depth,
+    hasChildren
   }
-  const children = Array.isArray(node.children)
+  const children = hasChildren
     ? node.children.flatMap((child) => flattenOperationTree(child, depth + 1))
     : []
   return [entry, ...children]
@@ -156,6 +160,9 @@ export const cleanseRunReportController = {
 
     const run = result.data
     const operationTree = flattenOperationTree(run.progress)
+    const currentPhase =
+      run.progress?.children?.find((c) => c.status === 'in-progress')?.name ??
+      null
 
     return h.view('cleanse/report', {
       pageTitle: `Report — ${operationId.substring(0, 8)}`,
@@ -169,7 +176,8 @@ export const cleanseRunReportController = {
         { text: 'Report' }
       ],
       run,
-      operationTree
+      operationTree,
+      currentPhase
     })
   }
 }

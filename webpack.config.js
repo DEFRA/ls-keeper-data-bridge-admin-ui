@@ -25,6 +25,9 @@ export default {
     },
     'cleanse-dashboard': {
       import: ['./javascripts/cleanse-dashboard.js']
+    },
+    'cleanse-report': {
+      import: ['./javascripts/cleanse-report.js']
     }
   },
   experiments: {

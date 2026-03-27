@@ -75,7 +75,7 @@
   color: $govuk-error-colour;
 }
 
-// ── Timings Tree ──────────────────────────────────────────
+// ── Timings Tree (legacy) ─────────────────────────────────
 .app-timings-tree {
   @include govuk-font($size: 16);
   font-family: monospace;
@@ -85,4 +85,132 @@
   overflow-x: auto;
   white-space: pre;
   tab-size: 2;
+}
+
+// ── Operation Tree Nodes ──────────────────────────────────
+.app-tree-node {
+  border-left: 3px solid $govuk-border-colour;
+  padding: govuk-spacing(3) govuk-spacing(3) govuk-spacing(1);
+  margin-bottom: govuk-spacing(2);
+  background: govuk-colour('white');
+
+  &--depth-0 {
+    margin-left: 0;
+    border-left-color: $govuk-brand-colour;
+    border-left-width: 4px;
+    background: govuk-colour('black', $variant: 'tint-95');
+  }
+
+  &--depth-1 {
+    margin-left: govuk-spacing(4);
+    border-left-color: govuk-colour('blue');
+  }
+
+  &--depth-2 {
+    margin-left: govuk-spacing(8);
+    border-left-color: govuk-colour('teal', $variant: 'primary');
+  }
+
+  &--depth-3 {
+    margin-left: govuk-spacing(8) + govuk-spacing(4);
+    border-left-color: govuk-colour('blue', $variant: 'tint-25');
+  }
+
+  &--depth-4 {
+    margin-left: govuk-spacing(8) + govuk-spacing(8);
+    border-left-color: $govuk-border-colour;
+  }
+
+  &__description {
+    color: $govuk-secondary-text-colour;
+  }
+
+  &__heading {
+    display: flex;
+    align-items: center;
+    gap: govuk-spacing(2);
+    flex-wrap: wrap;
+  }
+
+  // Collapsed state – hidden via JS
+  &--collapsed {
+    display: none;
+  }
+
+  // Compact summary lists inside tree nodes
+  .govuk-summary-list {
+    margin-bottom: govuk-spacing(1);
+  }
+
+  .govuk-summary-list__key,
+  .govuk-summary-list__value {
+    @include govuk-font($size: 16);
+    padding-top: govuk-spacing(1);
+    padding-bottom: govuk-spacing(1);
+  }
+}
+
+// ── Tree Toggle Button ────────────────────────────────────
+.app-tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid $govuk-border-colour;
+  border-radius: 2px;
+  background: govuk-colour('white');
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover {
+    background: govuk-colour('black', $variant: 'tint-95');
+  }
+
+  &:focus {
+    @include govuk-focused-text;
+  }
+
+  &__icon {
+    display: block;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 5px 0 5px 8px;
+    border-color: transparent transparent transparent govuk-colour('black');
+    transition: transform 0.15s ease;
+  }
+
+  // Expanded → arrow points down
+  &[aria-expanded='true'] .app-tree-toggle__icon {
+    transform: rotate(90deg);
+  }
+}
+
+// ── Tree Toolbar ──────────────────────────────────────────
+.app-tree-toolbar {
+  &__btn {
+    @include govuk-font($size: 16);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    color: $govuk-link-colour;
+
+    &:hover {
+      color: $govuk-link-hover-colour;
+    }
+
+    &:focus {
+      @include govuk-focused-text;
+    }
+  }
+
+  &__sep {
+    @include govuk-font($size: 16);
+    color: $govuk-secondary-text-colour;
+    margin: 0 govuk-spacing(1);
+  }
 }

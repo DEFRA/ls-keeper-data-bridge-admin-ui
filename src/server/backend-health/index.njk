@@ -1,0 +1,83 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if overallStatus %}
+    <p class="govuk-body govuk-!-margin-bottom-6">
+      <a href="/backend-health" class="govuk-link">Refresh</a>
+    </p>
+
+    {# ── Overall status ── #}
+    {% if overallStatus === "Healthy" %}
+      {% set overallTag = govukTag({ text: overallStatus, classes: "govuk-tag--green" }) %}
+    {% elif overallStatus === "Degraded" %}
+      {% set overallTag = govukTag({ text: overallStatus, classes: "govuk-tag--yellow" }) %}
+    {% elif overallStatus === "Unhealthy" %}
+      {% set overallTag = govukTag({ text: overallStatus, classes: "govuk-tag--red" }) %}
+    {% else %}
+      {% set overallTag = govukTag({ text: overallStatus, classes: "govuk-tag--grey" }) %}
+    {% endif %}
+
+    <h2 class="govuk-heading-m">
+      Overall status: {{ overallTag }}
+    </h2>
+
+    {# ── Individual checks ── #}
+    {% if checks.length %}
+      <div class="app-health-grid">
+        {% for check in checks %}
+          {% if check.status === "Healthy" %}
+            {% set checkTag = govukTag({ text: check.status, classes: "govuk-tag--green" }) %}
+            {% set borderClass = "app-health-card--healthy" %}
+          {% elif check.status === "Degraded" %}
+            {% set checkTag = govukTag({ text: check.status, classes: "govuk-tag--yellow" }) %}
+            {% set borderClass = "app-health-card--degraded" %}
+          {% elif check.status === "Unhealthy" %}
+            {% set checkTag = govukTag({ text: check.status, classes: "govuk-tag--red" }) %}
+            {% set borderClass = "app-health-card--unhealthy" %}
+          {% else %}
+            {% set checkTag = govukTag({ text: check.status, classes: "govuk-tag--grey" }) %}
+            {% set borderClass = "" %}
+          {% endif %}
+
+          <div class="app-health-card {{ borderClass }}">
+            <h3 class="govuk-heading-s govuk-!-margin-bottom-1">
+              {{ check.name }}
+              {{ checkTag }}
+            </h3>
+
+            {% if check.description %}
+              <p class="govuk-body-s govuk-!-margin-bottom-2 app-health-card__description">
+                {{ check.description }}
+              </p>
+            {% endif %}
+
+            {% if check.data.length %}
+              <dl class="app-health-card__data">
+                {% for item in check.data %}
+                  <div class="app-health-card__data-row">
+                    <dt class="app-health-card__data-key">{{ item.key }}</dt>
+                    <dd class="app-health-card__data-value">{{ item.value }}</dd>
+                  </div>
+                {% endfor %}
+              </dl>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endif %}
+{% endblock %}

@@ -11,6 +11,7 @@ import { throttlePolicies } from './throttle-policies/index.js'
 import { cleanseExport } from './cleanse-export/index.js'
 import { holdings } from './holdings/index.js'
 import { externalCatalogue } from './external-catalogue/index.js'
+import { backendHealth } from './backend-health/index.js'
 import { serveStaticFiles } from './common/helpers/serve-static-files.js'
 import { authMiddleware } from './auth/auth.js'
 
@@ -39,7 +40,8 @@ export const router = {
         throttlePolicies,
         cleanseExport,
         holdings,
-        externalCatalogue
+        externalCatalogue,
+        backendHealth
       ])
 
       // Static assets

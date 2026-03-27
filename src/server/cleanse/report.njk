@@ -70,7 +70,7 @@
         },
         {
           key: { text: "Current phase" },
-          value: { text: run.progress.children | selectattr("status", "equalto", "in-progress") | first | attr("name") if run.progress and run.progress.children else "—" }
+          value: { text: currentPhase or "—" }
         },
         {
           key: { text: "Progress" },
@@ -153,83 +153,106 @@
     {% endif %}
 
     {# ═══════════════════════════════════════════════════════ #}
-    {# Section 4 — Phase Breakdown                            #}
-    {# ═══════════════════════════════════════════════════════ #}
-    {% if run.progress and run.progress.children and run.progress.children.length %}
-      <h2 class="govuk-heading-m">Phase breakdown</h2>
-
-      {% for phase in run.progress.children %}
-        {% if phase.status === "completed" %}
-          {% set phaseTag = govukTag({ text: "Completed", classes: "govuk-tag--green" }) %}
-        {% elif phase.status === "in-progress" %}
-          {% set phaseTag = govukTag({ text: "In progress", classes: "govuk-tag--blue" }) %}
-        {% elif phase.status === "not-started" %}
-          {% set phaseTag = govukTag({ text: "Not started", classes: "govuk-tag--grey" }) %}
-        {% elif phase.status === "failed" %}
-          {% set phaseTag = govukTag({ text: "Failed", classes: "govuk-tag--red" }) %}
-        {% else %}
-          {% set phaseTag = govukTag({ text: phase.status or "Unknown", classes: "govuk-tag--grey" }) %}
-        {% endif %}
-
-        <h3 class="govuk-heading-s govuk-!-margin-bottom-2">{{ phase.name }}</h3>
-
-        {% set phaseRows = [
-          {
-            key: { text: "Status" },
-            value: { html: phaseTag }
-          },
-          {
-            key: { text: "Progress" },
-            value: { text: (phase.percentComplete | round(1)) + "%" if phase.percentComplete is defined else "—" }
-          },
-          {
-            key: { text: "Records" },
-            value: { text: (phase.processedCount | string) + " / " + (phase.totalRecords | string) if phase.totalRecords else "—" }
-          },
-          {
-            key: { text: "Elapsed" },
-            value: { text: phase.elapsed or "—" }
-          },
-          {
-            key: { text: "Duration" },
-            value: { text: phase.elapsedMs | formatDuration if phase.elapsedMs else "—" }
-          },
-          {
-            key: { text: "Current RPM" },
-            value: { text: (phase.currentRecordsPerMinute | round) + " records/min" if phase.currentRecordsPerMinute is defined else "—" }
-          },
-          {
-            key: { text: "Average RPM" },
-            value: { text: (phase.averageRecordsPerMinute | round) + " records/min" if phase.averageRecordsPerMinute is defined else "—" }
-          },
-          {
-            key: { text: "Projected completion" },
-            value: { text: phase.projectedEndTimeUtc | formatDate if phase.projectedEndTimeUtc else "—" }
-          }
-        ] %}
-
-        {% if phase.description %}
-          {% set phaseRows = (phaseRows.push(
-            {
-              key: { text: "Description" },
-              value: { text: phase.description }
-            }
-          ), phaseRows) %}
-        {% endif %}
-
-        {{ govukSummaryList({ rows: phaseRows }) }}
-      {% endfor %}
-    {% endif %}
-
-    {# ═══════════════════════════════════════════════════════ #}
-    {# Section 5 — Timings Tree                               #}
+    {# Section 4 — Full Operation Tree                        #}
     {# ═══════════════════════════════════════════════════════ #}
     {% if operationTree and operationTree.length %}
       <h2 class="govuk-heading-m">Operation tree</h2>
 
-      <pre class="app-timings-tree"><code>{% for t in operationTree %}
-{{ "  " * t.depth }}{{ t.name | truncate(40, true, "…") }}{{ " " * (40 - (t.name | length) - (t.depth * 2)) if (40 - (t.name | length) - (t.depth * 2)) > 0 else " " }}{{ t.status | default("—", true) | truncate(12, true, "") }}  {{ t.elapsed }}{% if t.percentComplete is not none %}  {{ t.percentComplete | round(1) }}%{% endif %}{% if t.averageRpm is not none %}  {{ t.averageRpm | round }} rpm{% endif %}
-{%- endfor %}</code></pre>
+      <div class="app-tree-toolbar govuk-!-margin-bottom-3">
+        <button type="button" class="govuk-link app-tree-toolbar__btn" data-action="expand-all">Expand all</button>
+        <span class="app-tree-toolbar__sep" aria-hidden="true">|</span>
+        <button type="button" class="govuk-link app-tree-toolbar__btn" data-action="collapse-all">Collapse all</button>
+      </div>
+
+      {% for node in operationTree %}
+        {# ── Status tag ── #}
+        {% if node.status === "completed" %}
+          {% set nodeTag = govukTag({ text: "Completed", classes: "govuk-tag--green" }) %}
+        {% elif node.status === "in-progress" %}
+          {% set nodeTag = govukTag({ text: "In progress", classes: "govuk-tag--blue" }) %}
+        {% elif node.status === "not-started" %}
+          {% set nodeTag = govukTag({ text: "Not started", classes: "govuk-tag--grey" }) %}
+        {% elif node.status === "failed" %}
+          {% set nodeTag = govukTag({ text: "Failed", classes: "govuk-tag--red" }) %}
+        {% else %}
+          {% set nodeTag = govukTag({ text: node.status or "—", classes: "govuk-tag--grey" }) %}
+        {% endif %}
+
+        <div class="app-tree-node app-tree-node--depth-{{ node.depth }}"
+             data-depth="{{ node.depth }}"
+             data-has-children="{{ 'true' if node.hasChildren else 'false' }}">
+          <h3 class="govuk-heading-s govuk-!-margin-bottom-1 app-tree-node__heading">
+            {{ node.name }}
+            {{ nodeTag }}
+          </h3>
+
+          {% if node.description %}
+            <p class="govuk-body-s govuk-!-margin-bottom-2 app-tree-node__description">{{ node.description }}</p>
+          {% endif %}
+
+          {# ── Progress bar for nodes with record counts ── #}
+          {% if node.totalRecords and node.percentComplete != null %}
+            <div class="app-progress-bar govuk-!-margin-bottom-2"
+                 role="progressbar"
+                 aria-valuenow="{{ node.percentComplete | round }}"
+                 aria-valuemin="0"
+                 aria-valuemax="100">
+              <div class="app-progress-bar__fill" style="width: {{ node.percentComplete | round(1) }}%"></div>
+            </div>
+            <p class="govuk-body-s govuk-!-margin-bottom-2">
+              {{ node.processedCount | default(0) | formatNumber }} / {{ node.totalRecords | formatNumber }} records ({{ node.percentComplete | round(1) }}%)
+            </p>
+          {% endif %}
+
+          {% set nodeRows = [] %}
+
+          {% if node.elapsed and node.elapsed !== "—" %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Elapsed" },
+              value: { text: node.elapsed }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if node.elapsedMs %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Duration" },
+              value: { text: node.elapsedMs | formatDuration }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if node.currentRpm != null %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Current RPM" },
+              value: { text: (node.currentRpm | round) + " records/min" }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if node.averageRpm != null %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Average RPM" },
+              value: { text: (node.averageRpm | round) + " records/min" }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if node.projectedEnd %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Projected completion" },
+              value: { text: node.projectedEnd | formatDate }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if node.projectedRemainingMs != null %}
+            {% set nodeRows = (nodeRows.push({
+              key: { text: "Time remaining" },
+              value: { text: node.projectedRemainingMs | formatDuration }
+            }), nodeRows) %}
+          {% endif %}
+
+          {% if nodeRows.length %}
+            {{ govukSummaryList({ rows: nodeRows, classes: "govuk-summary-list--no-border" }) }}
+          {% endif %}
+        </div>
+      {% endfor %}
     {% endif %}
 
     {# ═══════════════════════════════════════════════════════ #}
@@ -261,4 +284,8 @@
       <a href="/cleanse" class="govuk-link">Back to dashboard</a>
     </p>
   {% endif %}
+{% endblock %}
+
+{% block pageScripts %}
+  <script type="module" src="{{ getAssetPath('cleanse-report.js') }}"></script>
 {% endblock %}

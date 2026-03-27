@@ -93,6 +93,11 @@ describe('context and cache', () => {
               current: false,
               text: 'External Catalogue',
               href: '/external-catalogue'
+            },
+            {
+              current: false,
+              text: 'Backend Health',
+              href: '/backend-health'
             }
           ],
           serviceName: 'Keeper Data Bridge Admin',
@@ -218,6 +223,11 @@ describe('context and cache', () => {
               current: false,
               text: 'External Catalogue',
               href: '/external-catalogue'
+            },
+            {
+              current: false,
+              text: 'Backend Health',
+              href: '/backend-health'
             }
           ],
           serviceName: 'Keeper Data Bridge Admin',

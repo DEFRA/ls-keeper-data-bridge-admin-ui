@@ -46,6 +46,11 @@ export function buildNavigation(request) {
       text: 'External Catalogue',
       href: '/external-catalogue',
       current: request?.path?.startsWith('/external-catalogue')
+    },
+    {
+      text: 'Backend Health',
+      href: '/backend-health',
+      current: request?.path?.startsWith('/backend-health')
     }
   ]
 }
