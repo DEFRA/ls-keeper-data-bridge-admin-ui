@@ -28,6 +28,9 @@ export default {
     },
     'cleanse-report': {
       import: ['./javascripts/cleanse-report.js']
+    },
+    'etl-import': {
+      import: ['./javascripts/etl-import.js']
     }
   },
   experiments: {

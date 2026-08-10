@@ -26,6 +26,11 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
+        text: 'ETL',
+        href: '/etl'
+      },
+      {
+        current: false,
         text: 'Cleanse Export',
         href: '/cleanse-export'
       },
@@ -78,6 +83,11 @@ describe('#buildNavigation', () => {
         current: false,
         text: 'Cleanse',
         href: '/cleanse'
+      },
+      {
+        current: false,
+        text: 'ETL',
+        href: '/etl'
       },
       {
         current: false,

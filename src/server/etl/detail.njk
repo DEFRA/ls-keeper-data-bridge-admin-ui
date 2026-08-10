@@ -1,0 +1,164 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/summary-list/macro.njk" import govukSummaryList %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: "success" if flash.type == "success" else undefined,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+        <p><a class="govuk-link" href="/etl">Back to ETL pipeline</a></p>
+      </div>
+    </div>
+  {% endif %}
+
+  {% if etlImport %}
+    <div id="etl-import" data-import-id="{{ etlImport.importId }}">
+
+      <div class="govuk-!-margin-bottom-4">
+        <strong class="govuk-tag {{ etlImport.tagClass }}" id="etl-status-tag">{{ etlImport.status }}</strong>
+        <span class="govuk-body-s govuk-!-margin-left-2" id="etl-current-stage">
+          {%- if etlImport.currentStage %}Stage: {{ etlImport.currentStage }}{% endif -%}
+        </span>
+      </div>
+
+      {# Discovery filters on the timestamp in the filename, so a stale file is skipped and the run
+         still succeeds. That is not a pass. #}
+      <div id="etl-no-files-warning" class="{{ '' if etlImport.noSourceFilesWarning else 'app-hidden' }}">
+        {{ govukWarningText({
+          text: "This import succeeded but discovered no source files. Check the file is in the source
+          folder and that the timestamp in its filename is within the last 250 days.",
+          iconFallbackText: "Warning"
+        }) }}
+      </div>
+
+      {% if etlImport.error %}
+        <div class="govuk-error-summary" data-module="govuk-error-summary">
+          <h2 class="govuk-error-summary__title">The import failed</h2>
+          <div class="govuk-error-summary__body">
+            <p id="etl-error">{{ etlImport.error }}</p>
+          </div>
+        </div>
+      {% endif %}
+
+      {{ govukSummaryList({
+        rows: [
+          { key: { text: "Import ID" }, value: { text: etlImport.importId } },
+          { key: { text: "Source type" }, value: { text: etlImport.sourceType } },
+          { key: { text: "Dataset" }, value: { text: etlImport.dataset or "All datasets" } },
+          { key: { text: "Requested" }, value: { text: etlImport.requestedAtUtc | formatDate("dd MMM yyyy HH:mm:ss") } },
+          { key: { text: "Started" }, value: { text: etlImport.startedAtUtc | formatDate("dd MMM yyyy HH:mm:ss") if etlImport.startedAtUtc else "—" } },
+          { key: { text: "Completed" }, value: { text: etlImport.completedAtUtc | formatDate("dd MMM yyyy HH:mm:ss") if etlImport.completedAtUtc else "—" } },
+          { key: { text: "Source files discovered" }, value: { text: etlImport.sourceFileCount } }
+        ]
+      }) }}
+
+      {# ── Stages ─────────────────────────────────────── #}
+      <h2 class="govuk-heading-m">Stages</h2>
+
+      <table class="govuk-table" id="etl-stages">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Stage</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Items</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Elapsed</th>
+            <th scope="col" class="govuk-table__header">Completed</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for stage in etlImport.stages %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{{ stage.name }}</td>
+              <td class="govuk-table__cell govuk-table__cell--numeric">{{ stage.itemCount }}</td>
+              <td class="govuk-table__cell govuk-table__cell--numeric">{{ stage.elapsedMs | formatDuration }}</td>
+              <td class="govuk-table__cell">{{ stage.completedAtUtc | formatDate("HH:mm:ss") }}</td>
+            </tr>
+          {% endfor %}
+          {% if not etlImport.stages.length %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell" colspan="4">No stage has completed yet.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      {# ── Datasets ───────────────────────────────────── #}
+      <h2 class="govuk-heading-m">Datasets</h2>
+
+      {% for dataset in etlImport.datasets %}
+        <h3 class="govuk-heading-s">{{ dataset.dataset }}</h3>
+
+        {% set sourceFileRows = [] %}
+        {% for sourceFile in dataset.sourceFiles %}
+          {% set sourceFileRows = (sourceFileRows.push(sourceFile.key + " (" + (sourceFile.size | formatFileSize) + ")"), sourceFileRows) %}
+        {% endfor %}
+
+        {{ govukSummaryList({
+          rows: [
+            { key: { text: "Source files" }, value: { text: sourceFileRows | join(", ") if sourceFileRows.length else "—" } },
+            { key: { text: "Raw" }, value: { text: dataset.rawPaths | join(", ") if dataset.rawPaths.length else "—" } },
+            { key: { text: "Normalised" }, value: { text: dataset.normalisedPaths | join(", ") if dataset.normalisedPaths.length else "—" } },
+            { key: { text: "Snapshot" }, value: { text: dataset.snapshotPath or "—" } },
+            { key: { text: "Snapshot source timestamp" }, value: { text: dataset.snapshotSourceTimestampUtc | formatDate("dd MMM yyyy HH:mm:ss") if dataset.snapshotSourceTimestampUtc else "—" } },
+            { key: { text: "Rows" }, value: { text: dataset.rowCount if dataset.rowCount is not none else "—" } },
+            { key: { text: "Rows upserted" }, value: { text: dataset.rowsUpserted if dataset.rowsUpserted is not none else "—" } },
+            { key: { text: "Rows ignored as deletes" }, value: { text: dataset.rowsIgnoredDeletes if dataset.rowsIgnoredDeletes is not none else "—" } }
+          ]
+        }) }}
+      {% endfor %}
+
+      {% if not etlImport.datasets.length %}
+        <p class="govuk-body" id="etl-no-datasets">No dataset has been processed yet.</p>
+      {% endif %}
+
+      {# ── Download ───────────────────────────────────── #}
+      <h2 class="govuk-heading-m">Staging database</h2>
+
+      <div id="etl-download" class="{{ '' if etlImport.canDownload else 'app-hidden' }}">
+        {{ govukInsetText({ text: etlImport.duckDbPath }) if etlImport.duckDbPath }}
+
+        {{ govukButton({
+          text: "Download latest DuckDB",
+          href: "/etl/duckdb/latest"
+        }) }}
+
+        <p class="govuk-body-s">
+          Downloads the most recent staging database, which is this one unless a later import has
+          finished since.
+        </p>
+      </div>
+
+      <div id="etl-download-pending" class="{{ 'app-hidden' if etlImport.canDownload else '' }}">
+        <p class="govuk-body">No staging database has been produced by this import.</p>
+      </div>
+
+      <p class="govuk-body govuk-!-margin-top-6">
+        <a class="govuk-link" href="/etl">Back to ETL pipeline</a>
+      </p>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block pageScripts %}
+  {% if etlImport %}
+    <script type="application/json" id="etl-initial-data">
+      {{ initialData | safe }}
+    </script>
+    <script type="module" src="{{ getAssetPath('etl-import.js') }}"></script>
+  {% endif %}
+{% endblock %}

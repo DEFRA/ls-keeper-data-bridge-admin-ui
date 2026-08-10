@@ -66,6 +66,11 @@ describe('context and cache', () => {
             },
             {
               current: false,
+              text: 'ETL',
+              href: '/etl'
+            },
+            {
+              current: false,
               text: 'Cleanse Export',
               href: '/cleanse-export'
             },
@@ -193,6 +198,11 @@ describe('context and cache', () => {
               current: false,
               text: 'Cleanse',
               href: '/cleanse'
+            },
+            {
+              current: false,
+              text: 'ETL',
+              href: '/etl'
             },
             {
               current: false,
