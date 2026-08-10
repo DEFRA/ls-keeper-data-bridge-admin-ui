@@ -1,0 +1,188 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
+{% from "govuk/components/file-upload/macro.njk" import govukFileUpload %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+{% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
+{% from "govuk/components/details/macro.njk" import govukDetails %}
+
+{% set datasetItems = [{ value: "", text: "All datasets" }] %}
+{% for dataset in datasets %}
+  {% set datasetItems = (datasetItems.push({ value: dataset.name, text: dataset.name }), datasetItems) %}
+{% endfor %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: "success" if flash.type == "success" else undefined,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <p class="govuk-body">
+        Run the file-based ETL pipeline — discover, decrypt, normalise, snapshot and load into a
+        DuckDB staging database — over the files in the {{ sourceType }} source folder.
+      </p>
+
+      {# ── Upload ─────────────────────────────────────── #}
+      <h2 class="govuk-heading-m">1. Upload a source file</h2>
+
+      {{ govukInsetText({
+        text: "Files must be genuine encrypted source files with their original filenames. Decryption
+        uses the filename as the password, so a renamed file cannot be decrypted. The timestamp in
+        the filename must also be within the last 250 days or the file will not be discovered."
+      }) }}
+
+      <form method="post" action="/etl/upload" enctype="multipart/form-data">
+        {{ govukFileUpload({
+          id: "file",
+          name: "file",
+          label: { text: "Encrypted source file", classes: "govuk-label--s" },
+          hint: { text: "For example LITP_SAMCPHHOLDING_20251113121333.csv. The filename is used as-is." }
+        }) }}
+
+        {{ govukSelect({
+          id: "upload-dataset",
+          name: "dataset",
+          label: { text: "Dataset", classes: "govuk-label--s" },
+          hint: { text: "Restricts the import to one dataset. Leave as all datasets to process everything discoverable." },
+          errorMessage: { text: datasetsError } if datasetsError else undefined,
+          items: datasetItems
+        }) }}
+
+        {{ govukCheckboxes({
+          name: "startAfterUpload",
+          items: [
+            {
+              value: "true",
+              text: "Start an import as soon as the file is uploaded",
+              checked: true
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Upload file" }) }}
+      </form>
+
+      {# ── Trigger ────────────────────────────────────── #}
+      <h2 class="govuk-heading-m">2. Or start an import on its own</h2>
+
+      <p class="govuk-body">
+        Processes every file already in the {{ sourceType }} source folder, not just the last one
+        uploaded. Only one import runs at a time.
+      </p>
+
+      <form method="post" action="/etl/start">
+        {{ govukSelect({
+          id: "start-dataset",
+          name: "dataset",
+          label: { text: "Dataset", classes: "govuk-label--s" },
+          items: datasetItems
+        }) }}
+
+        {{ govukButton({ text: "Start import", classes: "govuk-button--secondary" }) }}
+      </form>
+
+      {# ── Download ───────────────────────────────────── #}
+      <h2 class="govuk-heading-m">3. Download the latest database</h2>
+
+      <p class="govuk-body">
+        The most recent DuckDB staging database, whichever import produced it.
+      </p>
+
+      {{ govukButton({
+        text: "Download latest DuckDB",
+        href: "/etl/duckdb/latest",
+        classes: "govuk-button--secondary"
+      }) }}
+
+    </div>
+  </div>
+
+  {# ── History ──────────────────────────────────────── #}
+  <h2 class="govuk-heading-m">Recent imports</h2>
+
+  {% if imports.length %}
+    <table class="govuk-table">
+      <thead class="govuk-table__head">
+        <tr class="govuk-table__row">
+          <th scope="col" class="govuk-table__header">Requested</th>
+          <th scope="col" class="govuk-table__header">Status</th>
+          <th scope="col" class="govuk-table__header">Dataset</th>
+          <th scope="col" class="govuk-table__header govuk-table__header--numeric">Files</th>
+          <th scope="col" class="govuk-table__header govuk-table__header--numeric">Rows</th>
+          <th scope="col" class="govuk-table__header">Stage</th>
+        </tr>
+      </thead>
+      <tbody class="govuk-table__body">
+        {% for etlImport in imports %}
+          <tr class="govuk-table__row">
+            <td class="govuk-table__cell">
+              <a class="govuk-link" href="/etl/imports/{{ etlImport.importId }}">
+                {{ etlImport.requestedAtUtc | formatDate("dd MMM yyyy HH:mm") }}
+              </a>
+            </td>
+            <td class="govuk-table__cell">
+              <strong class="govuk-tag {{ etlImport.tagClass }}">{{ etlImport.status }}</strong>
+              {% if etlImport.noSourceFilesWarning %}
+                <span class="govuk-caption-s">no files found</span>
+              {% endif %}
+            </td>
+            <td class="govuk-table__cell">{{ etlImport.dataset or "All" }}</td>
+            <td class="govuk-table__cell govuk-table__cell--numeric">{{ etlImport.sourceFileCount }}</td>
+            <td class="govuk-table__cell govuk-table__cell--numeric">
+              {{ etlImport.rowCount if etlImport.rowCount is not none else "—" }}
+            </td>
+            <td class="govuk-table__cell">{{ etlImport.currentStage or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% if pagination.totalPages > 1 %}
+      <nav class="govuk-pagination" aria-label="Pagination">
+        {% if pagination.currentPage > 1 %}
+          <div class="govuk-pagination__prev">
+            <a class="govuk-link govuk-pagination__link"
+               href="{{ pagination.basePath }}?page={{ pagination.currentPage - 1 }}" rel="prev">
+              <span class="govuk-pagination__link-title">Previous</span>
+            </a>
+          </div>
+        {% endif %}
+        <p class="govuk-body-s govuk-!-margin-bottom-0">
+          Page {{ pagination.currentPage }} of {{ pagination.totalPages }}
+          ({{ pagination.totalCount }} imports)
+        </p>
+        {% if pagination.currentPage < pagination.totalPages %}
+          <div class="govuk-pagination__next">
+            <a class="govuk-link govuk-pagination__link"
+               href="{{ pagination.basePath }}?page={{ pagination.currentPage + 1 }}" rel="next">
+              <span class="govuk-pagination__link-title">Next</span>
+            </a>
+          </div>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <p class="govuk-body">No ETL imports have been run yet.</p>
+  {% endif %}
+{% endblock %}

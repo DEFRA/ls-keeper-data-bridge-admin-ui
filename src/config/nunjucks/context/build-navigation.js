@@ -18,6 +18,11 @@ export function buildNavigation(request) {
         !request?.path?.startsWith('/cleanse-export')
     },
     {
+      text: 'ETL',
+      href: '/etl',
+      current: request?.path?.startsWith('/etl')
+    },
+    {
       text: 'Cleanse Export',
       href: '/cleanse-export',
       current: request?.path?.startsWith('/cleanse-export')

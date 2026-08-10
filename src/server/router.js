@@ -5,6 +5,7 @@ import { health } from './health/index.js'
 import { auth } from './auth/index.js'
 import { imports } from './import/index.js'
 import { cleanse } from './cleanse/index.js'
+import { etl } from './etl/index.js'
 import { issues } from './issues/index.js'
 import { query } from './query/index.js'
 import { throttlePolicies } from './throttle-policies/index.js'
@@ -35,6 +36,7 @@ export const router = {
         home,
         imports,
         cleanse,
+        etl,
         issues,
         query,
         throttlePolicies,
