@@ -4,6 +4,7 @@ import {
   etlUploadController,
   etlStartImportController,
   etlDuckDbDownloadController,
+  etlSqliteDownloadController,
   apiGetEtlImportController
 } from './controller.js'
 
@@ -45,6 +46,11 @@ const etl = {
           method: 'GET',
           path: '/etl/duckdb/latest',
           ...etlDuckDbDownloadController
+        },
+        {
+          method: 'GET',
+          path: '/etl/sqlite/latest',
+          ...etlSqliteDownloadController
         },
 
         // ── JSON API proxy route (for client-side polling) ──

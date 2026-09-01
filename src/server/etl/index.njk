@@ -103,17 +103,25 @@
       </form>
 
       {# ── Download ───────────────────────────────────── #}
-      <h2 class="govuk-heading-m">3. Download the latest database</h2>
+      <h2 class="govuk-heading-m">3. Download the latest databases</h2>
 
       <p class="govuk-body">
-        The most recent DuckDB staging database, whichever import produced it.
+        The most recent DuckDB staging database and SQLite production database, whichever import produced them.
       </p>
 
-      {{ govukButton({
-        text: "Download latest DuckDB",
-        href: "/etl/duckdb/latest",
-        classes: "govuk-button--secondary"
-      }) }}
+      <div class="govuk-button-group">
+        {{ govukButton({
+          text: "Download latest DuckDB",
+          href: "/etl/duckdb/latest",
+          classes: "govuk-button--secondary"
+        }) }}
+
+        {{ govukButton({
+          text: "Download latest SQLite",
+          href: "/etl/sqlite/latest",
+          classes: "govuk-button--secondary"
+        }) }}
+      </div>
 
     </div>
   </div>

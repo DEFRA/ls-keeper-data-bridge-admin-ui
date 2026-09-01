@@ -17,7 +17,8 @@ const {
   etlDashboardController,
   etlStartImportController,
   etlUploadController,
-  etlDuckDbDownloadController
+  etlDuckDbDownloadController,
+  etlSqliteDownloadController
 } = await import('./controller.js')
 
 // ── Test doubles ─────────────────────────────────────────
@@ -38,7 +39,8 @@ function mockResponseToolkit() {
     redirect: vi.fn((location) => ({ location })),
     response: vi.fn(() => ({
       code: vi.fn().mockReturnThis(),
-      type: vi.fn().mockReturnThis()
+      type: vi.fn().mockReturnThis(),
+      header: vi.fn().mockReturnThis()
     }))
   }
 }
@@ -387,5 +389,113 @@ describe('#etlDuckDbDownloadController', () => {
     await etlDuckDbDownloadController.handler(mockRequest(), h)
 
     expect(h.redirect).toHaveBeenCalledWith('/etl')
+  })
+})
+
+describe('#etlSqliteDownloadController', () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    global.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  test('Should stream the fetched file on success', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        downloadUrl: 'https://s3.example/cphs.sqlite?sig',
+        objectKey: 'views/cphs_123.sqlite'
+      }
+    })
+
+    const mockBody = new ReadableStream({
+      start(controller) {
+        controller.enqueue(Uint8Array.from([83, 81, 76, 105, 116, 101]))
+        controller.close()
+      }
+    })
+
+    global.fetch.mockResolvedValue({
+      ok: true,
+      body: mockBody
+    })
+
+    const h = mockResponseToolkit()
+    await etlSqliteDownloadController.handler(mockRequest(), h)
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://s3.example/cphs.sqlite?sig'
+    )
+    expect(h.response).toHaveBeenCalled()
+    const responseStream = h.response.mock.calls[0][0]
+    const chunks = []
+    for await (const chunk of responseStream) {
+      chunks.push(chunk)
+    }
+    expect(Buffer.concat(chunks).toString()).toBe('SQLite')
+
+    const responseObj = h.response.mock.results[0].value
+    expect(responseObj.type).toHaveBeenCalledWith('application/vnd.sqlite3')
+    expect(responseObj.header).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="cphs_123.sqlite"'
+    )
+    expect(responseObj.header).toHaveBeenCalledWith(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, proxy-revalidate'
+    )
+  })
+
+  test('Should show a safe message when no SQLite database exists', async () => {
+    apiRequest.mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: {
+        message:
+          'No CPH SQLite export files found. Trigger one via POST /api/etl/exports/cphs.'
+      }
+    })
+
+    const request = mockRequest()
+    const h = mockResponseToolkit()
+    await etlSqliteDownloadController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'No SQLite database is available to download',
+      type: 'error',
+      title: 'Error'
+    })
+    expect(request.yar.flash.mock.calls[0][1].message).not.toContain('/api/')
+  })
+
+  test('Should return to the page when the fetch fails', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { downloadUrl: 'https://s3.example/cphs.sqlite?sig' }
+    })
+
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden'
+    })
+
+    const request = mockRequest()
+    const h = mockResponseToolkit()
+    await etlSqliteDownloadController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'The SQLite database could not be downloaded. Try again later.',
+      type: 'error',
+      title: 'Error'
+    })
   })
 })
