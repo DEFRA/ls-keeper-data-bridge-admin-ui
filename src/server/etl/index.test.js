@@ -1,15 +1,17 @@
+import { randomUUID } from 'node:crypto'
 import { vi } from 'vitest'
 
 const apiRequest = vi.fn()
 const apiUploadRequest = vi.fn()
+const testAdminPassword = randomUUID()
 
 vi.mock('../common/helpers/api-client.js', () => ({
   apiRequest: (...args) => apiRequest(...args),
   apiUploadRequest: (...args) => apiUploadRequest(...args)
 }))
 
-process.env.ADMIN_PASSWORD = 'test-password'
-process.env.LOG_FORMAT = 'pino-pretty'
+vi.stubEnv('ADMIN_PASSWORD', testAdminPassword)
+vi.stubEnv('LOG_FORMAT', 'pino-pretty')
 
 const { createServer } = await import('../server.js')
 
@@ -35,6 +37,7 @@ describe('ETL SQLite download route', () => {
 
   afterAll(async () => {
     await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
   })
 
   async function authenticatedCookie() {
@@ -43,7 +46,7 @@ describe('ETL SQLite download route', () => {
       url: '/auth/login',
       payload: {
         username: 'admin',
-        password: 'test-password',
+        password: testAdminPassword,
         redirect: '/etl'
       }
     })
