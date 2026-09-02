@@ -1,6 +1,7 @@
 import { apiRequest, apiUploadRequest } from '../common/helpers/api-client.js'
 import { buildPagination, pageToSkip } from '../common/helpers/pagination.js'
 import { getFlash, setFlash } from '../common/helpers/flash.js'
+import { Readable } from 'node:stream'
 
 const HISTORY_PAGE_SIZE = 10
 
@@ -330,6 +331,59 @@ export const etlDuckDbDownloadController = {
     }
 
     return h.redirect(result.data.downloadUrl)
+  }
+}
+
+/**
+ * Download the latest SQLite database by fetching the backend's presigned URL and streaming the result.
+ */
+export const etlSqliteDownloadController = {
+  async handler(request, h) {
+    const result = await apiRequest('/api/etl/sqlite/cphs/latest')
+
+    if (!result.ok || !result.data?.downloadUrl) {
+      setFlash(
+        request,
+        result.status === 404
+          ? 'No SQLite database is available to download'
+          : 'The SQLite database could not be downloaded. Try again later.',
+        { type: 'error', title: 'Error' }
+      )
+      return h.redirect('/etl')
+    }
+
+    try {
+      const response = await fetch(result.data.downloadUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch SQLite file: ${response.status} ${response.statusText}`
+        )
+      }
+
+      // Extract filename from objectKey or use a default
+      let filename = 'database.sqlite'
+      if (result.data.objectKey) {
+        const parts = result.data.objectKey.split('/')
+        filename = parts[parts.length - 1]
+      }
+
+      // Readable.fromWeb converts the native Web Stream to a Node stream for Hapi
+      return h
+        .response(Readable.fromWeb(response.body))
+        .type('application/vnd.sqlite3')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .header(
+          'Cache-Control',
+          'no-store, no-cache, must-revalidate, proxy-revalidate'
+        )
+    } catch (error) {
+      setFlash(
+        request,
+        'The SQLite database could not be downloaded. Try again later.',
+        { type: 'error', title: 'Error' }
+      )
+      return h.redirect('/etl')
+    }
   }
 }
 

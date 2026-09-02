@@ -10,3 +10,6 @@ coverage
 .envrc
 tsconfig.tsbuildinfo
 .env
+/.vs/slnx.sqlite
+/.vs/ls-keeper-data-bridge-admin-ui.slnx/FileContentIndex
+/.vs
