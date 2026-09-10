@@ -6,11 +6,29 @@ import { Readable } from 'node:stream'
 const HISTORY_PAGE_SIZE = 10
 
 /**
- * The upload endpoint writes into the internal source folder, so a run triggered from this page
- * has to discover that folder. Offering the choice would let a user pick `external` and get a
- * Succeeded run that found nothing.
+ * Where a run discovers its files. `internal` is the CDP folder the upload form writes into;
+ * `external` is the IBM bucket the legacy sync reads from, configured as
+ * `StorageConfiguration.ExternalStorage` on the backend.
  */
-const SOURCE_TYPE = 'internal'
+export const SOURCE_TYPES = ['internal', 'external']
+
+/**
+ * The upload endpoint writes into the internal source folder, so a run started straight after an
+ * upload has to discover that folder.
+ */
+const UPLOAD_SOURCE_TYPE = 'internal'
+
+/**
+ * Normalises a submitted source type, falling back to the upload folder for anything unknown.
+ *
+ * @param {string} [sourceType] - Submitted source type
+ * @returns {string}
+ */
+export function resolveSourceType(sourceType) {
+  const value = sourceType?.trim().toLowerCase()
+
+  return SOURCE_TYPES.includes(value) ? value : UPLOAD_SOURCE_TYPE
+}
 
 const TERMINAL_STATUSES = ['Succeeded', 'Failed', 'Rejected']
 
@@ -133,10 +151,10 @@ function jsonResponse(h, result, successCode = 200) {
     .type('application/json')
 }
 
-async function startImport(dataset) {
+async function startImport(dataset, sourceType) {
   return apiRequest('/api/etl/imports', {
     method: 'POST',
-    searchParams: { sourceType: SOURCE_TYPE, dataset }
+    searchParams: { sourceType, dataset }
   })
 }
 
@@ -168,7 +186,8 @@ export const etlDashboardController = {
       breadcrumbs,
       imports,
       datasets: datasetsResult.data?.datasets ?? [],
-      sourceType: SOURCE_TYPE,
+      sourceType: UPLOAD_SOURCE_TYPE,
+      sourceTypes: SOURCE_TYPES,
       flash: getFlash(request),
       pagination: buildPagination(skip, HISTORY_PAGE_SIZE, totalCount, '/etl'),
       apiError: !importsResult.ok
@@ -262,7 +281,7 @@ export const etlUploadController = {
       return h.redirect('/etl')
     }
 
-    const startResult = await startImport(dataset)
+    const startResult = await startImport(dataset, UPLOAD_SOURCE_TYPE)
 
     if (startResult.status === 202 && startResult.data?.importId) {
       setFlash(request, `Uploaded "${objectKey}" and started an import.`)
@@ -280,16 +299,17 @@ export const etlUploadController = {
 }
 
 /**
- * Start a run over whatever is already in the source folder.
+ * Start a run over whatever is already in the chosen source folder.
  */
 export const etlStartImportController = {
   async handler(request, h) {
-    const { dataset } = request.payload ?? {}
+    const { dataset, sourceType: requestedSourceType } = request.payload ?? {}
+    const sourceType = resolveSourceType(requestedSourceType)
 
-    const result = await startImport(dataset)
+    const result = await startImport(dataset, sourceType)
 
     if (result.status === 202 && result.data?.importId) {
-      setFlash(request, 'ETL import started.')
+      setFlash(request, `ETL import started against the ${sourceType} source.`)
       return h.redirect(`/etl/imports/${result.data.importId}`)
     }
 

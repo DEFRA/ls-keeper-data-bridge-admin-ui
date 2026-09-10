@@ -16,6 +16,7 @@ const {
   validateSourceFilename,
   etlDashboardController,
   etlStartImportController,
+  resolveSourceType,
   etlUploadController,
   etlDuckDbDownloadController,
   etlSqliteDownloadController
@@ -234,8 +235,22 @@ describe('#etlDashboardController', () => {
   })
 })
 
+describe('#resolveSourceType', () => {
+  test('Should accept either source, ignoring case and whitespace', () => {
+    expect(resolveSourceType('internal')).toBe('internal')
+    expect(resolveSourceType('external')).toBe('external')
+    expect(resolveSourceType(' External ')).toBe('external')
+  })
+
+  test('Should fall back to the upload folder for anything else', () => {
+    expect(resolveSourceType(undefined)).toBe('internal')
+    expect(resolveSourceType('')).toBe('internal')
+    expect(resolveSourceType('s3')).toBe('internal')
+  })
+})
+
 describe('#etlStartImportController', () => {
-  test('Should trigger against the internal source folder and follow the new import', async () => {
+  test('Should trigger against the internal source folder by default and follow the new import', async () => {
     apiRequest.mockResolvedValue({
       ok: true,
       status: 202,
@@ -253,6 +268,46 @@ describe('#etlStartImportController', () => {
       searchParams: { sourceType: 'internal', dataset: 'sam_cph_holdings' }
     })
     expect(h.redirect).toHaveBeenCalledWith('/etl/imports/abc')
+  })
+
+  test('Should trigger against the external S3 bucket when chosen', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { importId: 'ext', status: 'Queued' }
+    })
+
+    const h = mockResponseToolkit()
+    await etlStartImportController.handler(
+      mockRequest({
+        payload: { dataset: 'sam_cph_holdings', sourceType: 'external' }
+      }),
+      h
+    )
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/imports', {
+      method: 'POST',
+      searchParams: { sourceType: 'external', dataset: 'sam_cph_holdings' }
+    })
+    expect(h.redirect).toHaveBeenCalledWith('/etl/imports/ext')
+  })
+
+  test('Should not let an unknown source type reach the backend', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { importId: 'abc', status: 'Queued' }
+    })
+
+    await etlStartImportController.handler(
+      mockRequest({ payload: { sourceType: 'ftp' } }),
+      mockResponseToolkit()
+    )
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/imports', {
+      method: 'POST',
+      searchParams: { sourceType: 'internal', dataset: undefined }
+    })
   })
 
   test('Should send a rejected trigger to the run already in flight', async () => {

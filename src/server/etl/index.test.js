@@ -125,3 +125,105 @@ describe('ETL SQLite download route', () => {
     expect(response.headers['cache-control']).toContain('no-store')
   })
 })
+
+describe('ETL source selection', () => {
+  let server
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  beforeEach(() => {
+    apiRequest.mockReset()
+  })
+
+  afterAll(async () => {
+    await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
+  })
+
+  async function authenticatedCookie() {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        username: 'admin',
+        password: testAdminPassword,
+        redirect: '/etl'
+      }
+    })
+
+    const setCookie = Array.isArray(response.headers['set-cookie'])
+      ? response.headers['set-cookie'][0]
+      : response.headers['set-cookie']
+
+    return setCookie.split(';')[0]
+  }
+
+  test('Should offer both sources on the start form and show each run source in the history', async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === '/api/etl/imports') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          data: {
+            imports: [
+              {
+                importId: 'ext-1',
+                status: 'Succeeded',
+                sourceType: 'external',
+                sourceFileCount: 3,
+                requestedAtUtc: '2026-08-11T10:00:00Z'
+              }
+            ],
+            totalCount: 1
+          }
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        data: { datasets: [] }
+      })
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('name="sourceType"')
+    expect(response.result).toContain('value="internal"')
+    expect(response.result).toContain('value="external"')
+    expect(response.result).toContain('External S3 bucket')
+    expect(response.result).toContain(
+      '<td class="govuk-table__cell">external</td>'
+    )
+  })
+
+  test('Should start a run against the external bucket through the registered route', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { importId: 'ext-1', status: 'Queued' }
+    })
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/etl/start',
+      headers: { cookie: await authenticatedCookie() },
+      payload: { sourceType: 'external', dataset: 'sam_cph_holdings' }
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/etl/imports/ext-1')
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/imports', {
+      method: 'POST',
+      searchParams: { sourceType: 'external', dataset: 'sam_cph_holdings' }
+    })
+  })
+})
