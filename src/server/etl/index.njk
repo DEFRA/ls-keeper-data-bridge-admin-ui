@@ -5,6 +5,7 @@
 {% from "govuk/components/tag/macro.njk" import govukTag %}
 {% from "govuk/components/select/macro.njk" import govukSelect %}
 {% from "govuk/components/checkboxes/macro.njk" import govukCheckboxes %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
 {% from "govuk/components/file-upload/macro.njk" import govukFileUpload %}
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
@@ -40,7 +41,8 @@
 
       <p class="govuk-body">
         Run the file-based ETL pipeline — discover, decrypt, normalise, snapshot and load into a
-        DuckDB staging database — over the files in the {{ sourceType }} source folder.
+        DuckDB staging database — over the files in either source folder: the internal folder that
+        uploads from this page land in, or the external bucket the source system delivers to.
       </p>
 
       {# ── Upload ─────────────────────────────────────── #}
@@ -87,11 +89,34 @@
       <h2 class="govuk-heading-m">2. Or start an import on its own</h2>
 
       <p class="govuk-body">
-        Processes every file already in the {{ sourceType }} source folder, not just the last one
-        uploaded. Only one import runs at a time.
+        Processes every file already in the chosen source folder, not just the last one uploaded.
+        Only one import runs at a time.
       </p>
 
       <form method="post" action="/etl/start">
+        {{ govukRadios({
+          name: "sourceType",
+          idPrefix: "start-source-type",
+          classes: "govuk-radios--small",
+          fieldset: {
+            legend: { text: "Source", classes: "govuk-fieldset__legend--s" }
+          },
+          items: [
+            {
+              value: "internal",
+              text: "Internal source folder",
+              hint: { text: "Files uploaded from this page." },
+              checked: sourceType == "internal"
+            },
+            {
+              value: "external",
+              text: "External S3 bucket",
+              hint: { text: "Files delivered by the source system, the same bucket the legacy import reads. Nothing is uploaded here from this page." },
+              checked: sourceType == "external"
+            }
+          ]
+        }) }}
+
         {{ govukSelect({
           id: "start-dataset",
           name: "dataset",
@@ -135,6 +160,7 @@
         <tr class="govuk-table__row">
           <th scope="col" class="govuk-table__header">Requested</th>
           <th scope="col" class="govuk-table__header">Status</th>
+          <th scope="col" class="govuk-table__header">Source</th>
           <th scope="col" class="govuk-table__header">Dataset</th>
           <th scope="col" class="govuk-table__header govuk-table__header--numeric">Files</th>
           <th scope="col" class="govuk-table__header govuk-table__header--numeric">Rows</th>
@@ -155,6 +181,7 @@
                 <span class="govuk-caption-s">no files found</span>
               {% endif %}
             </td>
+            <td class="govuk-table__cell">{{ etlImport.sourceType or "—" }}</td>
             <td class="govuk-table__cell">{{ etlImport.dataset or "All" }}</td>
             <td class="govuk-table__cell govuk-table__cell--numeric">{{ etlImport.sourceFileCount }}</td>
             <td class="govuk-table__cell govuk-table__cell--numeric">
