@@ -359,7 +359,7 @@ export const etlDuckDbDownloadController = {
  */
 export const etlSqliteDownloadController = {
   async handler(request, h) {
-    const result = await apiRequest('/api/etl/sqlite/cphs/latest')
+    const result = await apiRequest('/api/etl/staging/sqlite/latest')
 
     if (!result.ok || !result.data?.downloadUrl) {
       setFlash(
