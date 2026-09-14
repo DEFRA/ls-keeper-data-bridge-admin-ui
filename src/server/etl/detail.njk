@@ -47,11 +47,19 @@
         }) }}
       </div>
 
-      {% if etlImport.error %}
+      {% if etlImport.error or etlImport.errorDetailRows.length %}
         <div class="govuk-error-summary" data-module="govuk-error-summary">
           <h2 class="govuk-error-summary__title">The import failed</h2>
           <div class="govuk-error-summary__body">
-            <p id="etl-error">{{ etlImport.error }}</p>
+            {% if etlImport.error %}
+              <p id="etl-error">{{ etlImport.error }}</p>
+            {% endif %}
+            {% if etlImport.errorDetailRows.length %}
+              {{ govukSummaryList({
+                rows: etlImport.errorDetailRows,
+                classes: "govuk-summary-list--no-border"
+              }) }}
+            {% endif %}
           </div>
         </div>
       {% endif %}

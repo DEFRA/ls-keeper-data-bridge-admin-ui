@@ -11,6 +11,7 @@ vi.mock('../common/helpers/api-client.js', () => ({
 const {
   isTerminal,
   statusTagClass,
+  buildErrorDetailRows,
   buildImportView,
   buildImportSummaryView,
   validateSourceFilename,
@@ -129,6 +130,78 @@ describe('#buildImportView', () => {
   test('Should pass through a missing import as null', () => {
     expect(buildImportView(null)).toBeNull()
   })
+
+  test('Should carry the failure detail through as summary rows', () => {
+    const view = buildImportView({
+      status: 'Failed',
+      error: 'File failed H/C/D/T validation',
+      errorDetail: {
+        type: 'XsvValidationException',
+        stage: 'Normalise',
+        dataset: 'cts_addresses',
+        fileKey: 'litprd/LITP_CTSADDRESS_1.csv'
+      }
+    })
+
+    expect(view.errorDetailRows.map((row) => row.key.text)).toEqual([
+      'Error type',
+      'Stage',
+      'Dataset',
+      'File'
+    ])
+  })
+
+  test('Should report no detail rows for a run without any', () => {
+    expect(buildImportView({ status: 'Running' }).errorDetailRows).toEqual([])
+  })
+})
+
+describe('#buildErrorDetailRows', () => {
+  test('Should produce a row for each populated field, in order', () => {
+    const rows = buildErrorDetailRows({
+      type: 'XsvValidationException',
+      stage: 'Normalise',
+      dataset: 'cts_addresses',
+      fileKey: 'litprd/LITP_CTSADDRESS_1.csv',
+      recordNumber: 42,
+      expected: '10',
+      actual: '9'
+    })
+
+    expect(rows.map((row) => row.key.text)).toEqual([
+      'Error type',
+      'Stage',
+      'Dataset',
+      'File',
+      'Record',
+      'Expected',
+      'Actual'
+    ])
+    expect(rows.map((row) => row.value.text)).toEqual([
+      'XsvValidationException',
+      'Normalise',
+      'cts_addresses',
+      'litprd/LITP_CTSADDRESS_1.csv',
+      '42',
+      '10',
+      '9'
+    ])
+  })
+
+  test('Should skip fields the failure did not know', () => {
+    const rows = buildErrorDetailRows({
+      type: 'FormatException',
+      stage: 'Decrypt'
+    })
+
+    expect(rows.map((row) => row.key.text)).toEqual(['Error type', 'Stage'])
+  })
+
+  test('Should produce no rows for a missing or empty detail', () => {
+    expect(buildErrorDetailRows(null)).toEqual([])
+    expect(buildErrorDetailRows(undefined)).toEqual([])
+    expect(buildErrorDetailRows({})).toEqual([])
+  })
 })
 
 describe('#buildImportSummaryView', () => {
@@ -142,6 +215,39 @@ describe('#buildImportSummaryView', () => {
       buildImportSummaryView({ status: 'Succeeded', sourceFileCount: 2 })
         .noSourceFilesWarning
     ).toBe(false)
+  })
+
+  test('Should hint at where a failed run died', () => {
+    const view = buildImportSummaryView({
+      status: 'Failed',
+      errorDetail: {
+        stage: 'Normalise',
+        dataset: 'cts_addresses',
+        fileKey: 'litprd/LITP_CTSADDRESS_1.csv'
+      }
+    })
+
+    expect(view.failureHint).toBe('cts_addresses — LITP_CTSADDRESS_1.csv')
+  })
+
+  test('Should hint with whatever the failure knew, and only for failed runs', () => {
+    expect(
+      buildImportSummaryView({
+        status: 'Failed',
+        errorDetail: { fileKey: 'LITP_SAMCPHHOLDING_1.csv' }
+      }).failureHint
+    ).toBe('LITP_SAMCPHHOLDING_1.csv')
+
+    expect(
+      buildImportSummaryView({ status: 'Failed', errorDetail: {} }).failureHint
+    ).toBeNull()
+
+    expect(
+      buildImportSummaryView({
+        status: 'Succeeded',
+        errorDetail: { dataset: 'cts_addresses' }
+      }).failureHint
+    ).toBeNull()
   })
 })
 

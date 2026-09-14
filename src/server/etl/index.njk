@@ -180,6 +180,9 @@
               {% if etlImport.noSourceFilesWarning %}
                 <span class="govuk-caption-s">no files found</span>
               {% endif %}
+              {% if etlImport.failureHint %}
+                <span class="govuk-caption-s">{{ etlImport.failureHint }}</span>
+              {% endif %}
             </td>
             <td class="govuk-table__cell">{{ etlImport.sourceType or "—" }}</td>
             <td class="govuk-table__cell">{{ etlImport.dataset or "All" }}</td>
