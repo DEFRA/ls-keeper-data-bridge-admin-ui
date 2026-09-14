@@ -73,6 +73,52 @@ export function statusTagClass(status) {
 }
 
 /**
+ * Summary-list rows for the structured detail the backend stores beside a failed import's error
+ * message. Every field is optional - a failure only reports what the failing code actually knew -
+ * so only populated fields produce a row.
+ *
+ * @param {object} [detail] - errorDetail from the import status or summary response
+ * @returns {object[]} govukSummaryList rows
+ */
+export function buildErrorDetailRows(detail) {
+  if (!detail) return []
+
+  return [
+    ['Error type', detail.type],
+    ['Stage', detail.stage],
+    ['Dataset', detail.dataset],
+    ['File', detail.fileKey],
+    ['Record', detail.recordNumber],
+    ['Expected', detail.expected],
+    ['Actual', detail.actual]
+  ]
+    .filter(
+      ([, value]) => value !== null && value !== undefined && value !== ''
+    )
+    .map(([label, value]) => ({
+      key: { text: label },
+      value: { text: String(value) }
+    }))
+}
+
+/**
+ * One line naming where a failed run died - the dataset and the source file's basename - for the
+ * history table, where the full detail lives a click away on the import page.
+ *
+ * @param {object} summary - Import summary from the list endpoint
+ * @returns {string|null}
+ */
+export function buildFailureHint(summary) {
+  const detail = summary?.errorDetail
+
+  if (summary?.status !== 'Failed' || !detail) return null
+
+  const fileName = detail.fileKey?.split('/').pop()
+
+  return [detail.dataset, fileName].filter(Boolean).join(' — ') || null
+}
+
+/**
  * View model for a single import.
  *
  * Discovery looks at the timestamp in the source filename, so a stale or future-dated file is
@@ -98,6 +144,7 @@ export function buildImportView(status) {
     tagClass: statusTagClass(status.status),
     isTerminal: isTerminal(status.status),
     sourceFileCount,
+    errorDetailRows: buildErrorDetailRows(status.errorDetail),
     noSourceFilesWarning:
       status.status === 'Succeeded' && sourceFileCount === 0,
     canDownload: status.status === 'Succeeded' && Boolean(status.duckDbPath)
@@ -114,6 +161,7 @@ export function buildImportSummaryView(summary) {
   return {
     ...summary,
     tagClass: statusTagClass(summary.status),
+    failureHint: buildFailureHint(summary),
     noSourceFilesWarning:
       summary.status === 'Succeeded' && !summary.sourceFileCount
   }

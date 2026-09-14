@@ -126,6 +126,149 @@ describe('ETL SQLite download route', () => {
   })
 })
 
+describe('ETL import detail', () => {
+  let server
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  beforeEach(() => {
+    apiRequest.mockReset()
+  })
+
+  afterAll(async () => {
+    await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
+  })
+
+  async function authenticatedCookie() {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        username: 'admin',
+        password: testAdminPassword,
+        redirect: '/etl'
+      }
+    })
+
+    const setCookie = Array.isArray(response.headers['set-cookie'])
+      ? response.headers['set-cookie'][0]
+      : response.headers['set-cookie']
+
+    return setCookie.split(';')[0]
+  }
+
+  test('Should show the structured detail of a failed import', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        importId: 'failed-1',
+        status: 'Failed',
+        sourceType: 'internal',
+        requestedAtUtc: '2026-09-14T10:00:00Z',
+        error: "File 'litprd/LITP_CTSADDRESS_1.csv' failed H/C/D/T validation",
+        errorDetail: {
+          type: 'XsvValidationException',
+          stage: 'Normalise',
+          dataset: 'cts_addresses',
+          fileKey: 'litprd/LITP_CTSADDRESS_1.csv',
+          expected: '10',
+          actual: '9'
+        },
+        stages: [],
+        datasets: []
+      }
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/imports/failed-1',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('The import failed')
+    expect(response.result).toContain('XsvValidationException')
+    expect(response.result).toContain('Normalise')
+    expect(response.result).toContain('cts_addresses')
+    expect(response.result).toContain('litprd/LITP_CTSADDRESS_1.csv')
+    expect(response.result).toContain('Expected')
+    expect(response.result).toContain('Actual')
+  })
+
+  test('Should render a failed import whose detail is sparse', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        importId: 'failed-2',
+        status: 'Failed',
+        requestedAtUtc: '2026-09-14T10:00:00Z',
+        error: 'Something went wrong',
+        errorDetail: { type: 'InvalidOperationException' },
+        stages: [],
+        datasets: []
+      }
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/imports/failed-2',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('InvalidOperationException')
+    expect(response.result).not.toContain('Record')
+  })
+
+  test('Should hint at the failed dataset and file in the history', async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === '/api/etl/imports') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          data: {
+            imports: [
+              {
+                importId: 'failed-1',
+                status: 'Failed',
+                sourceType: 'internal',
+                sourceFileCount: 1,
+                requestedAtUtc: '2026-09-14T10:00:00Z',
+                errorDetail: {
+                  dataset: 'cts_addresses',
+                  fileKey: 'litprd/LITP_CTSADDRESS_1.csv'
+                }
+              }
+            ],
+            totalCount: 1
+          }
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        data: { datasets: [] }
+      })
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('cts_addresses — LITP_CTSADDRESS_1.csv')
+  })
+})
+
 describe('ETL source selection', () => {
   let server
 
