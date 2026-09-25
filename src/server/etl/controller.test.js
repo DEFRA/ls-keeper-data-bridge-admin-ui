@@ -663,12 +663,34 @@ describe('#etlSqliteDownloadController', () => {
 })
 
 describe('#etlParquetDownloadController', () => {
-  test('Should redirect to the presigned URL for the named dataset', async () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    global.fetch = vi.fn()
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
+  test('Should stream the snapshot for the named dataset rather than redirect to it', async () => {
     apiRequest.mockResolvedValue({
       ok: true,
       status: 200,
-      data: { downloadUrl: 'https://s3.example/snapshot.parquet?signature' }
+      data: {
+        downloadUrl: 'https://s3.example/snapshot.parquet?signature',
+        objectKey: 'snapshots/sam_cph_holdings/sam_cph_holdings_20260925070003.parquet'
+      }
     })
+
+    const mockBody = new ReadableStream({
+      start(controller) {
+        controller.enqueue(Uint8Array.from([80, 65, 82, 49]))
+        controller.close()
+      }
+    })
+
+    global.fetch.mockResolvedValue({ ok: true, body: mockBody })
 
     const h = mockResponseToolkit()
     await etlParquetDownloadController.handler(
@@ -679,8 +701,19 @@ describe('#etlParquetDownloadController', () => {
     expect(apiRequest).toHaveBeenCalledWith(
       '/api/etl/staging/snapshots/sam_cph_holdings/latest'
     )
-    expect(h.redirect).toHaveBeenCalledWith(
+    expect(global.fetch).toHaveBeenCalledWith(
       'https://s3.example/snapshot.parquet?signature'
+    )
+    // A form submission cannot follow a redirect to the S3 host under form-action 'self',
+    // so the file must stream through rather than redirect.
+    expect(h.redirect).not.toHaveBeenCalledWith(
+      'https://s3.example/snapshot.parquet?signature'
+    )
+    const responseObj = h.response.mock.results[0].value
+    expect(responseObj.type).toHaveBeenCalledWith('application/vnd.apache.parquet')
+    expect(responseObj.header).toHaveBeenCalledWith(
+      'Content-Disposition',
+      'attachment; filename="sam_cph_holdings_20260925070003.parquet"'
     )
   })
 
@@ -718,6 +751,32 @@ describe('#etlParquetDownloadController', () => {
     expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
       message:
         "No parquet snapshot found for dataset 'sam_cph_holdings'. Run the ETL pipeline first.",
+      type: 'error',
+      title: 'Error'
+    })
+  })
+
+  test('Should return to the page when the presigned fetch fails', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { downloadUrl: 'https://s3.example/snapshot.parquet?signature' }
+    })
+
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden'
+    })
+
+    const request = mockRequest({ query: { dataset: 'sam_cph_holdings' } })
+    const h = mockResponseToolkit()
+
+    await etlParquetDownloadController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'The parquet snapshot could not be downloaded. Try again later.',
       type: 'error',
       title: 'Error'
     })
