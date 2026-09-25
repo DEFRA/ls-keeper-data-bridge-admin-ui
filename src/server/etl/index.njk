@@ -12,8 +12,10 @@
 {% from "govuk/components/details/macro.njk" import govukDetails %}
 
 {% set datasetItems = [{ value: "", text: "All datasets" }] %}
+{% set parquetDatasetItems = [] %}
 {% for dataset in datasets %}
   {% set datasetItems = (datasetItems.push({ value: dataset.name, text: dataset.name }), datasetItems) %}
+  {% set parquetDatasetItems = (parquetDatasetItems.push({ value: dataset.name, text: dataset.name }), parquetDatasetItems) %}
 {% endfor %}
 
 {% block content %}
@@ -128,7 +130,7 @@
       </form>
 
       {# ── Download ───────────────────────────────────── #}
-      <h2 class="govuk-heading-m">3. Download the latest databases</h2>
+      <h2 class="govuk-heading-m">3. Download the latest outputs</h2>
 
       <p class="govuk-body">
         The most recent DuckDB staging database and SQLite production database, whichever import produced them.
@@ -147,6 +149,23 @@
           classes: "govuk-button--secondary"
         }) }}
       </div>
+
+      {% if parquetDatasetItems.length %}
+        <form method="get" action="/etl/parquet/latest">
+          {{ govukSelect({
+            id: "parquet-dataset",
+            name: "dataset",
+            label: { text: "Parquet snapshot", classes: "govuk-label--s" },
+            hint: { text: "Snapshots are per-dataset; downloads the newest parquet snapshot of the one selected." },
+            items: parquetDatasetItems
+          }) }}
+
+          {{ govukButton({
+            text: "Download latest parquet",
+            classes: "govuk-button--secondary"
+          }) }}
+        </form>
+      {% endif %}
 
     </div>
   </div>

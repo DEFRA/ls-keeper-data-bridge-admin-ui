@@ -20,6 +20,7 @@ const {
   resolveSourceType,
   etlUploadController,
   etlDuckDbDownloadController,
+  etlParquetDownloadController,
   etlSqliteDownloadController
 } = await import('./controller.js')
 
@@ -655,6 +656,68 @@ describe('#etlSqliteDownloadController', () => {
     expect(h.redirect).toHaveBeenCalledWith('/etl')
     expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
       message: 'The SQLite database could not be downloaded. Try again later.',
+      type: 'error',
+      title: 'Error'
+    })
+  })
+})
+
+describe('#etlParquetDownloadController', () => {
+  test('Should redirect to the presigned URL for the named dataset', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { downloadUrl: 'https://s3.example/snapshot.parquet?signature' }
+    })
+
+    const h = mockResponseToolkit()
+    await etlParquetDownloadController.handler(
+      mockRequest({ query: { dataset: 'sam_cph_holdings' } }),
+      h
+    )
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      '/api/etl/staging/snapshots/sam_cph_holdings/latest'
+    )
+    expect(h.redirect).toHaveBeenCalledWith(
+      'https://s3.example/snapshot.parquet?signature'
+    )
+  })
+
+  test('Should require a dataset before asking the backend', async () => {
+    const request = mockRequest({ query: {} })
+    const h = mockResponseToolkit()
+
+    await etlParquetDownloadController.handler(request, h)
+
+    expect(apiRequest).not.toHaveBeenCalled()
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'Select a dataset to download',
+      type: 'error',
+      title: 'Error'
+    })
+  })
+
+  test('Should return to the page when the dataset has no snapshot', async () => {
+    apiRequest.mockResolvedValue({
+      ok: false,
+      status: 404,
+      data: {
+        message:
+          "No parquet snapshot found for dataset 'sam_cph_holdings'. Run the ETL pipeline first."
+      }
+    })
+
+    const request = mockRequest({ query: { dataset: 'sam_cph_holdings' } })
+    const h = mockResponseToolkit()
+
+    await etlParquetDownloadController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message:
+        "No parquet snapshot found for dataset 'sam_cph_holdings'. Run the ETL pipeline first.",
       type: 'error',
       title: 'Error'
     })

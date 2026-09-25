@@ -403,6 +403,39 @@ export const etlDuckDbDownloadController = {
 }
 
 /**
+ * Download the newest parquet snapshot of a dataset by following the backend's presigned URL.
+ * Snapshots are per-dataset, so the dataset must be named in the query string.
+ */
+export const etlParquetDownloadController = {
+  async handler(request, h) {
+    const dataset = request.query.dataset?.trim()
+
+    if (!dataset) {
+      setFlash(request, 'Select a dataset to download', {
+        type: 'error',
+        title: 'Error'
+      })
+      return h.redirect('/etl')
+    }
+
+    const result = await apiRequest(
+      `/api/etl/staging/snapshots/${encodeURIComponent(dataset)}/latest`
+    )
+
+    if (!result.ok || !result.data?.downloadUrl) {
+      setFlash(
+        request,
+        result.data?.message ?? 'No parquet snapshot is available to download',
+        { type: 'error', title: 'Error' }
+      )
+      return h.redirect('/etl')
+    }
+
+    return h.redirect(result.data.downloadUrl)
+  }
+}
+
+/**
  * Download the latest SQLite database by fetching the backend's presigned URL and streaming the result.
  */
 export const etlSqliteDownloadController = {
