@@ -403,8 +403,10 @@ export const etlDuckDbDownloadController = {
 }
 
 /**
- * Download the newest parquet snapshot of a dataset by following the backend's presigned URL.
- * Snapshots are per-dataset, so the dataset must be named in the query string.
+ * Download the newest parquet snapshot of a dataset by fetching the backend's presigned URL and
+ * streaming the result. The file has to stream through here rather than redirect the browser to
+ * S3: this control is reached by a form submission, and the CSP form-action policy applies to the
+ * whole redirect chain, so a 302 to the S3 host is refused.
  */
 export const etlParquetDownloadController = {
   async handler(request, h) {
@@ -431,7 +433,37 @@ export const etlParquetDownloadController = {
       return h.redirect('/etl')
     }
 
-    return h.redirect(result.data.downloadUrl)
+    try {
+      const response = await fetch(result.data.downloadUrl)
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch parquet snapshot: ${response.status} ${response.statusText}`
+        )
+      }
+
+      let filename = 'snapshot.parquet'
+      if (result.data.objectKey) {
+        const parts = result.data.objectKey.split('/')
+        filename = parts[parts.length - 1]
+      }
+
+      // Readable.fromWeb converts the native Web Stream to a Node stream for Hapi
+      return h
+        .response(Readable.fromWeb(response.body))
+        .type('application/vnd.apache.parquet')
+        .header('Content-Disposition', `attachment; filename="${filename}"`)
+        .header(
+          'Cache-Control',
+          'no-store, no-cache, must-revalidate, proxy-revalidate'
+        )
+    } catch {
+      setFlash(
+        request,
+        'The parquet snapshot could not be downloaded. Try again later.',
+        { type: 'error', title: 'Error' }
+      )
+      return h.redirect('/etl')
+    }
   }
 }
 
