@@ -30,7 +30,23 @@ export function resolveSourceType(sourceType) {
   return SOURCE_TYPES.includes(value) ? value : UPLOAD_SOURCE_TYPE
 }
 
-const TERMINAL_STATUSES = ['Succeeded', 'Failed', 'Rejected']
+const TERMINAL_STATUSES = ['Succeeded', 'Failed', 'Rejected', 'Purged']
+
+/**
+ * The stages the backend purge endpoint accepts, in pipeline order. A purge cascades downstream:
+ * purging `snapshots` also clears `staging` and `views`, because those artefacts are timestamp-keyed
+ * and would otherwise be reused while holding the deleted snapshots' data.
+ */
+export const PURGE_STAGES = [
+  'all',
+  'inbound',
+  'raw',
+  'normalised',
+  'optimised',
+  'snapshots',
+  'staging',
+  'views'
+]
 
 const breadcrumbs = [
   { text: 'Home', href: '/' },
@@ -67,6 +83,8 @@ export function statusTagClass(status) {
       return 'govuk-tag--blue'
     case 'Queued':
       return 'govuk-tag--yellow'
+    case 'Purged':
+      return 'govuk-tag--purple'
     default:
       return 'govuk-tag--grey'
   }
@@ -119,6 +137,27 @@ export function buildFailureHint(summary) {
 }
 
 /**
+ * One line saying what a purge removed, for the history table: the object count and the stages it
+ * cascaded to. Purge records sit in the same history as imports; this is their counterpart to the
+ * failure hint.
+ *
+ * @param {object} summary - Import summary from the list endpoint
+ * @returns {string|null}
+ */
+export function buildPurgeHint(summary) {
+  const purge = summary?.purge
+
+  if (summary?.status !== 'Purged' || !purge) return null
+
+  return [
+    `${purge.deletedCount ?? 0} object(s)`,
+    purge.stages?.length ? purge.stages.join(', ') : null
+  ]
+    .filter(Boolean)
+    .join(' — ')
+}
+
+/**
  * View model for a single import.
  *
  * Discovery looks at the timestamp in the source filename, so a stale or future-dated file is
@@ -145,10 +184,33 @@ export function buildImportView(status) {
     isTerminal: isTerminal(status.status),
     sourceFileCount,
     errorDetailRows: buildErrorDetailRows(status.errorDetail),
+    purgeRows: buildPurgeRows(status.purge),
     noSourceFilesWarning:
       status.status === 'Succeeded' && sourceFileCount === 0,
     canDownload: status.status === 'Succeeded' && Boolean(status.duckDbPath)
   }
+}
+
+/**
+ * Summary-list rows for what a purge removed, mirroring {@link buildErrorDetailRows} for failures.
+ *
+ * @param {object} [purge] - purge detail from the import status response
+ * @returns {object[]} govukSummaryList rows
+ */
+export function buildPurgeRows(purge) {
+  if (!purge) return []
+
+  return [
+    ['Stages purged', purge.stages?.length ? purge.stages.join(', ') : null],
+    ['Objects deleted', purge.deletedCount]
+  ]
+    .filter(
+      ([, value]) => value !== null && value !== undefined && value !== ''
+    )
+    .map(([label, value]) => ({
+      key: { text: label },
+      value: { text: String(value) }
+    }))
 }
 
 /**
@@ -162,6 +224,7 @@ export function buildImportSummaryView(summary) {
     ...summary,
     tagClass: statusTagClass(summary.status),
     failureHint: buildFailureHint(summary),
+    purgeHint: buildPurgeHint(summary),
     noSourceFilesWarning:
       summary.status === 'Succeeded' && !summary.sourceFileCount
   }
@@ -236,6 +299,7 @@ export const etlDashboardController = {
       datasets: datasetsResult.data?.datasets ?? [],
       sourceType: UPLOAD_SOURCE_TYPE,
       sourceTypes: SOURCE_TYPES,
+      purgeStages: PURGE_STAGES,
       flash: getFlash(request),
       pagination: buildPagination(skip, HISTORY_PAGE_SIZE, totalCount, '/etl'),
       apiError: !importsResult.ok
@@ -380,6 +444,71 @@ function redirectForFailedStart(result) {
   const inFlightImportId = result.data?.inFlightImportId
 
   return inFlightImportId ? `/etl/imports/${inFlightImportId}` : '/etl'
+}
+
+/**
+ * Purge interstitial ETL storage: deletes the chosen stage for the chosen dataset (or all of them),
+ * and everything the pipeline derives downstream of it. Destructive and not reversible, so the form
+ * asks for explicit confirmation and the backend refuses while an import is running.
+ */
+export const etlPurgeController = {
+  async handler(request, h) {
+    const {
+      dataset,
+      stage,
+      sourceType: requestedSourceType,
+      confirm
+    } = request.payload ?? {}
+
+    const requestedStage = stage?.trim().toLowerCase()
+
+    if (!PURGE_STAGES.includes(requestedStage)) {
+      setFlash(request, 'Select what to purge.', {
+        type: 'error',
+        title: 'Error'
+      })
+      return h.redirect('/etl')
+    }
+
+    if (confirm !== 'true') {
+      setFlash(request, 'Confirm the purge to continue.', {
+        type: 'error',
+        title: 'Error'
+      })
+      return h.redirect('/etl')
+    }
+
+    const result = await apiRequest('/api/etl/storage', {
+      method: 'DELETE',
+      searchParams: {
+        dataset: dataset?.trim() || 'all',
+        stage: requestedStage,
+        sourceType: resolveSourceType(requestedSourceType)
+      }
+    })
+
+    if (result.ok) {
+      setFlash(
+        request,
+        result.data?.message ??
+          `Purged ${result.data?.deletedCount ?? 0} object(s) from stage storage.`
+      )
+      return h.redirect('/etl')
+    }
+
+    setFlash(request, result.data?.message ?? 'The purge failed', {
+      type: 'error',
+      title: 'Error'
+    })
+
+    // A conflict names the import holding the pipeline, which is the one worth watching.
+    const inFlightImportId = result.data?.inFlightImportId
+    return h.redirect(
+      result.status === 409 && inFlightImportId
+        ? `/etl/imports/${inFlightImportId}`
+        : '/etl'
+    )
+  }
 }
 
 /**

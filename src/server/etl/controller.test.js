@@ -12,11 +12,13 @@ const {
   isTerminal,
   statusTagClass,
   buildErrorDetailRows,
+  buildPurgeRows,
   buildImportView,
   buildImportSummaryView,
   validateSourceFilename,
   etlDashboardController,
   etlStartImportController,
+  etlPurgeController,
   resolveSourceType,
   etlUploadController,
   etlDuckDbDownloadController,
@@ -60,7 +62,7 @@ beforeEach(() => {
 // ── Pure helpers ─────────────────────────────────────────
 
 describe('#isTerminal', () => {
-  test.each(['Succeeded', 'Failed', 'Rejected'])(
+  test.each(['Succeeded', 'Failed', 'Rejected', 'Purged'])(
     'Should treat %s as finished',
     (status) => {
       expect(isTerminal(status)).toBe(true)
@@ -82,6 +84,7 @@ describe('#statusTagClass', () => {
     expect(statusTagClass('Rejected')).toBe('govuk-tag--orange')
     expect(statusTagClass('Running')).toBe('govuk-tag--blue')
     expect(statusTagClass('Queued')).toBe('govuk-tag--yellow')
+    expect(statusTagClass('Purged')).toBe('govuk-tag--purple')
     expect(statusTagClass('Something else')).toBe('govuk-tag--grey')
   })
 })
@@ -249,6 +252,58 @@ describe('#buildImportSummaryView', () => {
         errorDetail: { dataset: 'cts_addresses' }
       }).failureHint
     ).toBeNull()
+  })
+
+  test('Should hint at what a purge removed', () => {
+    const view = buildImportSummaryView({
+      status: 'Purged',
+      purge: { stages: ['snapshots', 'staging', 'views'], deletedCount: 7 }
+    })
+
+    expect(view.purgeHint).toBe('7 object(s) — snapshots, staging, views')
+  })
+
+  test('Should only hint for purge records that carry the detail', () => {
+    expect(buildImportSummaryView({ status: 'Purged' }).purgeHint).toBeNull()
+    expect(
+      buildImportSummaryView({
+        status: 'Succeeded',
+        purge: { stages: ['raw'], deletedCount: 1 }
+      }).purgeHint
+    ).toBeNull()
+  })
+})
+
+describe('#buildPurgeRows', () => {
+  test('Should produce a row for each populated field', () => {
+    const rows = buildPurgeRows({
+      stages: ['normalised', 'optimised', 'snapshots', 'staging', 'views'],
+      deletedCount: 12
+    })
+
+    expect(rows.map((row) => row.key.text)).toEqual([
+      'Stages purged',
+      'Objects deleted'
+    ])
+    expect(rows.map((row) => row.value.text)).toEqual([
+      'normalised, optimised, snapshots, staging, views',
+      '12'
+    ])
+  })
+
+  test('Should produce no rows for a missing purge', () => {
+    expect(buildPurgeRows(null)).toEqual([])
+    expect(buildPurgeRows(undefined)).toEqual([])
+  })
+
+  test('Should surface purge rows on the import view model', () => {
+    const view = buildImportView({
+      status: 'Purged',
+      purge: { stages: ['staging', 'views'], deletedCount: 3 }
+    })
+
+    expect(view.purgeRows).toHaveLength(2)
+    expect(view.isTerminal).toBe(true)
   })
 })
 
@@ -524,6 +579,125 @@ describe('#etlUploadController', () => {
   })
 })
 
+describe('#etlPurgeController', () => {
+  test('Should delete the chosen stage for the chosen dataset', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        success: true,
+        deletedCount: 4,
+        purgedStages: ['snapshots', 'staging', 'views'],
+        message: 'Successfully purged 4 object(s) from S3 stage storage.'
+      }
+    })
+
+    const request = mockRequest({
+      payload: {
+        dataset: 'sam_cph_holdings',
+        stage: 'snapshots',
+        confirm: 'true'
+      }
+    })
+    const h = mockResponseToolkit()
+    await etlPurgeController.handler(request, h)
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage', {
+      method: 'DELETE',
+      searchParams: {
+        dataset: 'sam_cph_holdings',
+        stage: 'snapshots',
+        sourceType: 'internal'
+      }
+    })
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'Successfully purged 4 object(s) from S3 stage storage.',
+      type: 'success',
+      title: 'Success'
+    })
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+  })
+
+  test('Should send all datasets when none is chosen', async () => {
+    apiRequest.mockResolvedValue({ ok: true, status: 200, data: {} })
+
+    const request = mockRequest({
+      payload: { stage: 'all', sourceType: 'external', confirm: 'true' }
+    })
+    const h = mockResponseToolkit()
+    await etlPurgeController.handler(request, h)
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage', {
+      method: 'DELETE',
+      searchParams: { dataset: 'all', stage: 'all', sourceType: 'external' }
+    })
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+  })
+
+  test('Should refuse to purge without the confirmation checkbox', async () => {
+    const request = mockRequest({
+      payload: { dataset: 'all', stage: 'all' }
+    })
+    const h = mockResponseToolkit()
+    await etlPurgeController.handler(request, h)
+
+    expect(apiRequest).not.toHaveBeenCalled()
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+  })
+
+  test.each([undefined, '', 'not-a-stage'])(
+    'Should refuse an unknown stage %s before calling the backend',
+    async (stage) => {
+      const request = mockRequest({ payload: { stage, confirm: 'true' } })
+      const h = mockResponseToolkit()
+      await etlPurgeController.handler(request, h)
+
+      expect(apiRequest).not.toHaveBeenCalled()
+      expect(h.redirect).toHaveBeenCalledWith('/etl')
+    }
+  )
+
+  test('Should follow a conflict to the import already running', async () => {
+    apiRequest.mockResolvedValue({
+      ok: false,
+      status: 409,
+      data: { message: 'An ETL import is running.', inFlightImportId: 'busy-1' }
+    })
+
+    const request = mockRequest({
+      payload: { stage: 'all', confirm: 'true' }
+    })
+    const h = mockResponseToolkit()
+    await etlPurgeController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl/imports/busy-1')
+  })
+
+  test('Should return to the page when the purge is refused outright', async () => {
+    apiRequest.mockResolvedValue({
+      ok: false,
+      status: 403,
+      data: {
+        message:
+          'Storage purge endpoint is disabled in production environments.'
+      }
+    })
+
+    const request = mockRequest({
+      payload: { stage: 'raw', confirm: 'true' }
+    })
+    const h = mockResponseToolkit()
+    await etlPurgeController.handler(request, h)
+
+    expect(h.redirect).toHaveBeenCalledWith('/etl')
+    expect(request.yar.flash).toHaveBeenCalledWith('_flash', {
+      message: 'Storage purge endpoint is disabled in production environments.',
+      type: 'error',
+      title: 'Error'
+    })
+  })
+})
+
 describe('#etlDuckDbDownloadController', () => {
   test('Should redirect to the presigned URL', async () => {
     apiRequest.mockResolvedValue({
@@ -679,7 +853,8 @@ describe('#etlParquetDownloadController', () => {
       status: 200,
       data: {
         downloadUrl: 'https://s3.example/snapshot.parquet?signature',
-        objectKey: 'snapshots/sam_cph_holdings/sam_cph_holdings_20260925070003.parquet'
+        objectKey:
+          'snapshots/sam_cph_holdings/sam_cph_holdings_20260925070003.parquet'
       }
     })
 
@@ -710,7 +885,9 @@ describe('#etlParquetDownloadController', () => {
       'https://s3.example/snapshot.parquet?signature'
     )
     const responseObj = h.response.mock.results[0].value
-    expect(responseObj.type).toHaveBeenCalledWith('application/vnd.apache.parquet')
+    expect(responseObj.type).toHaveBeenCalledWith(
+      'application/vnd.apache.parquet'
+    )
     expect(responseObj.header).toHaveBeenCalledWith(
       'Content-Disposition',
       'attachment; filename="sam_cph_holdings_20260925070003.parquet"'

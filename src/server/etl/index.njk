@@ -10,12 +10,18 @@
 {% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
 {% from "govuk/components/inset-text/macro.njk" import govukInsetText %}
 {% from "govuk/components/details/macro.njk" import govukDetails %}
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
 
 {% set datasetItems = [{ value: "", text: "All datasets" }] %}
 {% set parquetDatasetItems = [] %}
 {% for dataset in datasets %}
   {% set datasetItems = (datasetItems.push({ value: dataset.name, text: dataset.name }), datasetItems) %}
   {% set parquetDatasetItems = (parquetDatasetItems.push({ value: dataset.name, text: dataset.name }), parquetDatasetItems) %}
+{% endfor %}
+
+{% set purgeStageItems = [] %}
+{% for stage in purgeStages %}
+  {% set purgeStageItems = (purgeStageItems.push({ value: stage, text: "Everything (full reset)" if stage == "all" else stage }), purgeStageItems) %}
 {% endfor %}
 
 {% block content %}
@@ -167,6 +173,66 @@
         </form>
       {% endif %}
 
+      {# ── Purge ────────────────────────────────────── #}
+      <h2 class="govuk-heading-m">4. Purge stage storage</h2>
+
+      {{ govukWarningText({
+        text: "Purging permanently deletes stage data and cannot be undone. Purging a stage also deletes everything downstream of it — purging snapshots also clears the staging database and SQLite export, which the next full import rebuilds.",
+        iconFallbackText: "Warning"
+      }) }}
+
+      <form method="post" action="/etl/purge">
+        {{ govukSelect({
+          id: "purge-dataset",
+          name: "dataset",
+          label: { text: "Dataset", classes: "govuk-label--s" },
+          hint: { text: "Which dataset's stage files to delete. Staging and views are shared by every dataset, so a purge that reaches them clears them whole." },
+          items: datasetItems
+        }) }}
+
+        {{ govukSelect({
+          id: "purge-stage",
+          name: "stage",
+          label: { text: "Stage", classes: "govuk-label--s" },
+          hint: { text: "The stage to purge plus everything the pipeline derives from it. Purge everything to make the next import a first-ever run." },
+          items: purgeStageItems
+        }) }}
+
+        {{ govukRadios({
+          name: "sourceType",
+          idPrefix: "purge-source-type",
+          classes: "govuk-radios--small",
+          fieldset: {
+            legend: { text: "Source", classes: "govuk-fieldset__legend--s" }
+          },
+          hint: { text: "Only applies to inbound files; every other stage lives in internal storage." },
+          items: [
+            {
+              value: "internal",
+              text: "Internal source folder",
+              checked: sourceType == "internal"
+            },
+            {
+              value: "external",
+              text: "External S3 bucket",
+              checked: sourceType == "external"
+            }
+          ]
+        }) }}
+
+        {{ govukCheckboxes({
+          name: "confirm",
+          items: [
+            {
+              value: "true",
+              text: "I understand this permanently deletes the selected stage data"
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Purge storage", classes: "govuk-button--warning" }) }}
+      </form>
+
     </div>
   </div>
 
@@ -201,6 +267,9 @@
               {% endif %}
               {% if etlImport.failureHint %}
                 <span class="govuk-caption-s">{{ etlImport.failureHint }}</span>
+              {% endif %}
+              {% if etlImport.purgeHint %}
+                <span class="govuk-caption-s">{{ etlImport.purgeHint }}</span>
               {% endif %}
             </td>
             <td class="govuk-table__cell">{{ etlImport.sourceType or "—" }}</td>

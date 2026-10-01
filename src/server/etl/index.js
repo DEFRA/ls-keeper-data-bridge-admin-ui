@@ -3,6 +3,7 @@ import {
   etlImportDetailController,
   etlUploadController,
   etlStartImportController,
+  etlPurgeController,
   etlDuckDbDownloadController,
   etlParquetDownloadController,
   etlSqliteDownloadController,
@@ -40,6 +41,11 @@ const etl = {
           method: 'POST',
           path: '/etl/start',
           ...etlStartImportController
+        },
+        {
+          method: 'POST',
+          path: '/etl/purge',
+          ...etlPurgeController
         },
 
         // ── Download ──
