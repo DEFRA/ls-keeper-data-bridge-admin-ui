@@ -568,3 +568,174 @@ describe('ETL purge', () => {
     })
   })
 })
+
+describe('ETL storage report', () => {
+  let server
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  beforeEach(() => {
+    apiRequest.mockReset()
+  })
+
+  afterAll(async () => {
+    await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
+  })
+
+  async function authenticatedCookie() {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        username: 'admin',
+        password: testAdminPassword,
+        redirect: '/etl'
+      }
+    })
+
+    const setCookie = Array.isArray(response.headers['set-cookie'])
+      ? response.headers['set-cookie'][0]
+      : response.headers['set-cookie']
+
+    return setCookie.split(';')[0]
+  }
+
+  function mockReport(report) {
+    apiRequest.mockImplementation((path) =>
+      path === '/api/etl/storage/objects'
+        ? Promise.resolve({ ok: true, status: 200, data: report })
+        : Promise.resolve({ ok: true, status: 200, data: { datasets: [] } })
+    )
+  }
+
+  test('Should require authentication', async () => {
+    const response = await server.inject('/etl/storage')
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      '/auth/login?redirect=%2Fetl%2Fstorage'
+    )
+  })
+
+  test('Should link to the report from the ETL page', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { imports: [], totalCount: 0, datasets: [] }
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('href="/etl/storage"')
+  })
+
+  test('Should show the objects, their sizes and the per-dataset totals', async () => {
+    mockReport({
+      stage: 'snapshots',
+      dataset: 'all',
+      sourceType: 'internal',
+      objectCount: 2,
+      totalSizeBytes: 4096,
+      groups: [
+        { dataset: 'cts_keeper', objectCount: 1, sizeBytes: 1024 },
+        { dataset: 'sam_cph_holdings', objectCount: 1, sizeBytes: 3072 }
+      ],
+      objects: [
+        {
+          stage: 'snapshots',
+          key: 'cts_keeper/cts_keeper_20260819.parquet',
+          sizeBytes: 1024,
+          lastModifiedUtc: '2026-09-30T12:00:00Z'
+        },
+        {
+          stage: 'snapshots',
+          key: 'sam_cph_holdings/sam_cph_holdings_20260819.parquet',
+          sizeBytes: 3072,
+          lastModifiedUtc: '2026-09-30T12:00:00Z'
+        }
+      ],
+      skip: 0,
+      top: 100
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/storage?stage=snapshots',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage/objects', {
+      searchParams: {
+        stage: 'snapshots',
+        dataset: 'all',
+        sourceType: 'internal',
+        skip: 0,
+        top: 100
+      }
+    })
+    expect(response.result).toContain('Per dataset')
+    expect(response.result).toContain('cts_keeper')
+    expect(response.result).toContain(
+      'snapshots/sam_cph_holdings/sam_cph_holdings_20260819.parquet'
+    )
+    expect(response.result).toContain('4.0 KB')
+  })
+
+  test('Should page a large folder', async () => {
+    mockReport({
+      objectCount: 250,
+      totalSizeBytes: 250,
+      groups: [{ dataset: 'shared', objectCount: 250, sizeBytes: 250 }],
+      objects: [
+        {
+          stage: 'staging',
+          key: 'krds-db.duckdb',
+          sizeBytes: 250,
+          lastModifiedUtc: '2026-09-30T12:00:00Z'
+        }
+      ],
+      skip: 0,
+      top: 100
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/storage?stage=staging',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('Page 1 of 3')
+    expect(response.result).toContain('page=2')
+  })
+
+  test('Should say so when the folder is empty', async () => {
+    mockReport({
+      objectCount: 0,
+      totalSizeBytes: 0,
+      groups: [],
+      objects: [],
+      skip: 0,
+      top: 100
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/storage?stage=views',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('No objects found')
+  })
+})

@@ -17,6 +17,7 @@ const {
   buildImportSummaryView,
   validateSourceFilename,
   etlDashboardController,
+  etlStorageReportController,
   etlStartImportController,
   etlPurgeController,
   resolveSourceType,
@@ -695,6 +696,115 @@ describe('#etlPurgeController', () => {
       type: 'error',
       title: 'Error'
     })
+  })
+})
+
+describe('#etlStorageReportController', () => {
+  test('Should request the report for the chosen filters and page', async () => {
+    apiRequest.mockImplementation((path) =>
+      path === '/api/etl/storage/objects'
+        ? Promise.resolve({
+            ok: true,
+            status: 200,
+            data: {
+              objectCount: 250,
+              totalSizeBytes: 1234,
+              groups: [
+                { dataset: 'shared', objectCount: 250, sizeBytes: 1234 }
+              ],
+              objects: [
+                {
+                  stage: 'snapshots',
+                  key: 'sam_cph_holdings/a.parquet',
+                  sizeBytes: 1,
+                  lastModifiedUtc: '2026-09-30T12:00:00Z'
+                }
+              ]
+            }
+          })
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            data: { datasets: [{ name: 'sam_cph_holdings' }] }
+          })
+    )
+
+    const request = mockRequest({
+      query: {
+        stage: 'snapshots',
+        dataset: 'sam_cph_holdings',
+        sourceType: 'external',
+        page: '2'
+      }
+    })
+    const h = mockResponseToolkit()
+    await etlStorageReportController.handler(request, h)
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage/objects', {
+      searchParams: {
+        stage: 'snapshots',
+        dataset: 'sam_cph_holdings',
+        sourceType: 'external',
+        skip: 100,
+        top: 100
+      }
+    })
+    expect(h.view).toHaveBeenCalledWith(
+      'etl/storage',
+      expect.objectContaining({
+        report: expect.objectContaining({ objectCount: 250 }),
+        filters: {
+          stage: 'snapshots',
+          dataset: 'sam_cph_holdings',
+          sourceType: 'external'
+        },
+        datasets: [{ name: 'sam_cph_holdings' }],
+        apiError: null
+      })
+    )
+  })
+
+  test('Should report on every folder and dataset when no filters are chosen', async () => {
+    apiRequest.mockResolvedValue({ ok: true, status: 200, data: {} })
+
+    const request = mockRequest()
+    const h = mockResponseToolkit()
+    await etlStorageReportController.handler(request, h)
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage/objects', {
+      searchParams: {
+        stage: 'all',
+        dataset: 'all',
+        sourceType: 'internal',
+        skip: 0,
+        top: 100
+      }
+    })
+    expect(h.view).toHaveBeenCalledWith(
+      'etl/storage',
+      expect.objectContaining({ report: {} })
+    )
+  })
+
+  test('Should flag an API failure instead of a report', async () => {
+    apiRequest.mockImplementation((path) =>
+      path === '/api/etl/storage/objects'
+        ? Promise.resolve({
+            ok: false,
+            status: 400,
+            data: { message: 'Invalid stage' }
+          })
+        : Promise.resolve({ ok: true, status: 200, data: { datasets: [] } })
+    )
+
+    const request = mockRequest({ query: { stage: 'raw' } })
+    const h = mockResponseToolkit()
+    await etlStorageReportController.handler(request, h)
+
+    expect(h.view).toHaveBeenCalledWith(
+      'etl/storage',
+      expect.objectContaining({ report: null, apiError: 'Invalid stage' })
+    )
   })
 })
 
