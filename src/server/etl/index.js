@@ -1,6 +1,7 @@
 import {
   etlDashboardController,
   etlImportDetailController,
+  etlStorageReportController,
   etlUploadController,
   etlStartImportController,
   etlPurgeController,
@@ -28,6 +29,11 @@ const etl = {
           method: 'GET',
           path: '/etl/imports/{importId}',
           ...etlImportDetailController
+        },
+        {
+          method: 'GET',
+          path: '/etl/storage',
+          ...etlStorageReportController
         },
 
         // ── Form POST routes (redirect-based) ──

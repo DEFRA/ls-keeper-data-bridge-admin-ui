@@ -1,0 +1,177 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/button/macro.njk" import govukButton %}
+{% from "govuk/components/select/macro.njk" import govukSelect %}
+{% from "govuk/components/radios/macro.njk" import govukRadios %}
+{% from "govuk/components/notification-banner/macro.njk" import govukNotificationBanner %}
+
+{% set datasetItems = [{ value: "all", text: "All datasets" }] %}
+{% for dataset in datasets %}
+  {% set datasetItems = (datasetItems.push({ value: dataset.name, text: dataset.name }), datasetItems) %}
+{% endfor %}
+
+{% set stageItems = [] %}
+{% for stage in stages %}
+  {% set stageItems = (stageItems.push({ value: stage, text: "All folders" if stage == "all" else stage }), stageItems) %}
+{% endfor %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  {% if flash %}
+    {{ govukNotificationBanner({
+      type: "success" if flash.type == "success" else undefined,
+      titleText: flash.title,
+      text: flash.message
+    }) }}
+  {% endif %}
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+
+      <p class="govuk-body">
+        What's physically in each stage folder — every object's key, size and when it was written —
+        grouped by dataset, for debugging storage growth or checking what a purge would touch.
+      </p>
+
+      <form method="get" action="/etl/storage">
+        {{ govukSelect({
+          id: "stage",
+          name: "stage",
+          label: { text: "Stage", classes: "govuk-label--s" },
+          hint: { text: "The folder to list. All folders reports every stage in one listing." },
+          items: stageItems,
+          value: filters.stage
+        }) }}
+
+        {{ govukSelect({
+          id: "dataset",
+          name: "dataset",
+          label: { text: "Dataset", classes: "govuk-label--s" },
+          hint: { text: "Staging and views hold artefacts shared by every dataset, so they cannot be reported for a single one." },
+          items: datasetItems,
+          value: filters.dataset
+        }) }}
+
+        {{ govukRadios({
+          name: "sourceType",
+          idPrefix: "report-source-type",
+          classes: "govuk-radios--small",
+          fieldset: {
+            legend: { text: "Source", classes: "govuk-fieldset__legend--s" }
+          },
+          hint: { text: "Only applies to inbound files; every other stage lives in internal storage." },
+          items: [
+            {
+              value: "internal",
+              text: "Internal source folder",
+              checked: filters.sourceType == "internal"
+            },
+            {
+              value: "external",
+              text: "External S3 bucket",
+              checked: filters.sourceType == "external"
+            }
+          ]
+        }) }}
+
+        {{ govukButton({ text: "Report", classes: "govuk-button--secondary" }) }}
+      </form>
+
+    </div>
+  </div>
+
+  {% if report %}
+    <h2 class="govuk-heading-m">
+      {{ report.objectCount | formatNumber }} object(s) —
+      {{ report.totalSizeBytes | formatFileSize }}
+    </h2>
+
+    {% if report.groups.length > 1 or (report.groups.length and report.groups[0].dataset != filters.dataset) %}
+      <table class="govuk-table">
+        <caption class="govuk-table__caption govuk-table__caption--s">Per dataset</caption>
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Dataset</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Objects</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Size</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for group in report.groups %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{{ group.dataset }}</td>
+              <td class="govuk-table__cell govuk-table__cell--numeric">
+                {{ group.objectCount | formatNumber }}
+              </td>
+              <td class="govuk-table__cell govuk-table__cell--numeric">
+                {{ group.sizeBytes | formatFileSize }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if report.objects.length %}
+      <table class="govuk-table">
+        <thead class="govuk-table__head">
+          <tr class="govuk-table__row">
+            <th scope="col" class="govuk-table__header">Key</th>
+            <th scope="col" class="govuk-table__header govuk-table__header--numeric">Size</th>
+            <th scope="col" class="govuk-table__header">Last modified</th>
+          </tr>
+        </thead>
+        <tbody class="govuk-table__body">
+          {% for object in report.objects %}
+            <tr class="govuk-table__row">
+              <td class="govuk-table__cell">{{ object.stage }}/{{ object.key }}</td>
+              <td class="govuk-table__cell govuk-table__cell--numeric">
+                {{ object.sizeBytes | formatFileSize }}
+              </td>
+              <td class="govuk-table__cell">
+                {{ object.lastModifiedUtc | formatDate("dd MMM yyyy HH:mm") }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if pagination.totalPages > 1 %}
+        <nav class="govuk-pagination" aria-label="Pagination">
+          {% if pagination.currentPage > 1 %}
+            <div class="govuk-pagination__prev">
+              <a class="govuk-link govuk-pagination__link"
+                 href="{{ pagination.basePath }}&page={{ pagination.currentPage - 1 }}" rel="prev">
+                <span class="govuk-pagination__link-title">Previous</span>
+              </a>
+            </div>
+          {% endif %}
+          <p class="govuk-body-s govuk-!-margin-bottom-0">
+            Page {{ pagination.currentPage }} of {{ pagination.totalPages }}
+            ({{ pagination.totalCount }} objects)
+          </p>
+          {% if pagination.currentPage < pagination.totalPages %}
+            <div class="govuk-pagination__next">
+              <a class="govuk-link govuk-pagination__link"
+                 href="{{ pagination.basePath }}&page={{ pagination.currentPage + 1 }}" rel="next">
+                <span class="govuk-pagination__link-title">Next</span>
+              </a>
+            </div>
+          {% endif %}
+        </nav>
+      {% endif %}
+    {% else %}
+      <p class="govuk-body">No objects found.</p>
+    {% endif %}
+  {% endif %}
+{% endblock %}
