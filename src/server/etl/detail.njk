@@ -76,6 +76,18 @@
         ]
       }) }}
 
+      {# A purge record is not a run: it has no stages or datasets, only what it deleted. #}
+      {% if etlImport.purge %}
+        <h2 class="govuk-heading-m">Purge</h2>
+
+        {{ govukSummaryList({ rows: etlImport.purgeRows }) }}
+
+        <p class="govuk-body">
+          The purged stages are rebuilt by the next import; a purge of everything behaves like a
+          first-ever run.
+        </p>
+      {% else %}
+
       {# ── Stages ─────────────────────────────────────── #}
       <h2 class="govuk-heading-m">Stages</h2>
 
@@ -154,6 +166,8 @@
       <div id="etl-download-pending" class="{{ 'app-hidden' if etlImport.canDownload else '' }}">
         <p class="govuk-body">No staging database has been produced by this import.</p>
       </div>
+
+      {% endif %}
 
       <p class="govuk-body govuk-!-margin-top-6">
         <a class="govuk-link" href="/etl">Back to ETL pipeline</a>

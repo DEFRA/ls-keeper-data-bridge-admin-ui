@@ -370,3 +370,201 @@ describe('ETL source selection', () => {
     })
   })
 })
+
+describe('ETL purge', () => {
+  let server
+
+  beforeAll(async () => {
+    server = await createServer()
+    await server.initialize()
+  })
+
+  beforeEach(() => {
+    apiRequest.mockReset()
+  })
+
+  afterAll(async () => {
+    await server.stop({ timeout: 0 })
+    vi.unstubAllEnvs()
+  })
+
+  async function authenticatedCookie() {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        username: 'admin',
+        password: testAdminPassword,
+        redirect: '/etl'
+      }
+    })
+
+    const setCookie = Array.isArray(response.headers['set-cookie'])
+      ? response.headers['set-cookie'][0]
+      : response.headers['set-cookie']
+
+    return setCookie.split(';')[0]
+  }
+
+  test('Should require authentication', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/etl/purge',
+      payload: { stage: 'all', confirm: 'true' }
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      '/auth/login?redirect=%2Fetl%2Fpurge'
+    )
+  })
+
+  test('Should show the purge form on the ETL page', async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === '/api/etl/imports') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          data: { imports: [], totalCount: 0 }
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        data: { datasets: [] }
+      })
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('action="/etl/purge"')
+    expect(response.result).toContain('name="confirm"')
+    expect(response.result).toContain('cannot be undone')
+  })
+
+  test('Should list a purge in the import history', async () => {
+    apiRequest.mockImplementation((path) => {
+      if (path === '/api/etl/imports') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          data: {
+            imports: [
+              {
+                importId: 'purge-1',
+                status: 'Purged',
+                sourceType: 'internal',
+                requestedAtUtc: '2026-09-30T12:00:00Z',
+                purge: {
+                  stages: ['snapshots', 'staging', 'views'],
+                  deletedCount: 7
+                }
+              }
+            ],
+            totalCount: 1
+          }
+        })
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        data: { datasets: [] }
+      })
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('govuk-tag--purple')
+    expect(response.result).toContain('7 object(s) — snapshots, staging, views')
+  })
+
+  test('Should show what a purge deleted instead of a pipeline run', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        importId: 'purge-1',
+        status: 'Purged',
+        sourceType: 'internal',
+        requestedAtUtc: '2026-09-30T12:00:00Z',
+        startedAtUtc: '2026-09-30T12:00:01Z',
+        completedAtUtc: '2026-09-30T12:00:02Z',
+        purge: {
+          stages: ['snapshots', 'staging', 'views'],
+          deletedCount: 7
+        }
+      }
+    })
+
+    const response = await server.inject({
+      method: 'GET',
+      url: '/etl/imports/purge-1',
+      headers: { cookie: await authenticatedCookie() }
+    })
+
+    expect(response.statusCode).toBe(200)
+    expect(response.result).toContain('govuk-tag--purple')
+    expect(response.result).toContain('Stages purged')
+    expect(response.result).toContain('snapshots, staging, views')
+    expect(response.result).toContain('Objects deleted')
+    expect(response.result).not.toContain('Staging database')
+  })
+
+  test('Should not reach the backend without the confirmation checkbox', async () => {
+    const response = await server.inject({
+      method: 'POST',
+      url: '/etl/purge',
+      headers: { cookie: await authenticatedCookie() },
+      payload: { stage: 'all' }
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/etl')
+    expect(apiRequest).not.toHaveBeenCalledWith(
+      '/api/etl/storage',
+      expect.anything()
+    )
+  })
+
+  test('Should purge through the registered route', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { success: true, deletedCount: 4 }
+    })
+
+    const response = await server.inject({
+      method: 'POST',
+      url: '/etl/purge',
+      headers: { cookie: await authenticatedCookie() },
+      payload: {
+        dataset: 'sam_cph_holdings',
+        stage: 'snapshots',
+        confirm: 'true'
+      }
+    })
+
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/etl')
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/storage', {
+      method: 'DELETE',
+      searchParams: {
+        dataset: 'sam_cph_holdings',
+        stage: 'snapshots',
+        sourceType: 'internal'
+      }
+    })
+  })
+})

@@ -21,6 +21,7 @@ const TAG_CLASSES = [
   'govuk-tag--orange',
   'govuk-tag--blue',
   'govuk-tag--yellow',
+  'govuk-tag--purple',
   'govuk-tag--grey'
 ]
 
@@ -36,6 +37,8 @@ function tagClass(status) {
       return 'govuk-tag--blue'
     case 'Queued':
       return 'govuk-tag--yellow'
+    case 'Purged':
+      return 'govuk-tag--purple'
     default:
       return 'govuk-tag--grey'
   }
