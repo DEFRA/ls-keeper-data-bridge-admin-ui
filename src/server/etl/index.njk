@@ -132,6 +132,18 @@
           items: datasetItems
         }) }}
 
+        {{ govukCheckboxes({
+          name: "rebuild",
+          classes: "govuk-checkboxes--small",
+          items: [
+            {
+              value: "true",
+              text: "Rebuild everything from scratch",
+              hint: { text: "Clears every stage first, so every source file is downloaded, decrypted and processed again instead of reusing what is already there. Takes considerably longer than a normal run." }
+            }
+          ]
+        }) }}
+
         {{ govukButton({ text: "Start import", classes: "govuk-button--secondary" }) }}
       </form>
 

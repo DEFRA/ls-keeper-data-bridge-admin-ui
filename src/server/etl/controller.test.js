@@ -472,6 +472,48 @@ describe('#etlStartImportController', () => {
     })
   })
 
+  test('Should ask for a rebuild only when the box is ticked', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { importId: 'rebuilt', status: 'Queued' }
+    })
+
+    const h = mockResponseToolkit()
+    await etlStartImportController.handler(
+      mockRequest({
+        payload: { sourceType: 'external', rebuild: 'true' }
+      }),
+      h
+    )
+
+    expect(apiRequest).toHaveBeenCalledWith('/api/etl/imports', {
+      method: 'POST',
+      searchParams: {
+        sourceType: 'external',
+        dataset: undefined,
+        rebuild: 'true'
+      }
+    })
+    expect(h.redirect).toHaveBeenCalledWith('/etl/imports/rebuilt')
+  })
+
+  test('Should leave the rebuild parameter off entirely for a normal start', async () => {
+    apiRequest.mockResolvedValue({
+      ok: true,
+      status: 202,
+      data: { importId: 'abc', status: 'Queued' }
+    })
+
+    await etlStartImportController.handler(
+      mockRequest({ payload: { sourceType: 'external' } }),
+      mockResponseToolkit()
+    )
+
+    const [, options] = apiRequest.mock.calls.at(-1)
+    expect(options.searchParams).not.toHaveProperty('rebuild')
+  })
+
   test('Should send a rejected trigger to the run already in flight', async () => {
     apiRequest.mockResolvedValue({
       ok: false,

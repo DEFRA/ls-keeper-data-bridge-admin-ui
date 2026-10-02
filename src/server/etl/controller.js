@@ -262,10 +262,18 @@ function jsonResponse(h, result, successCode = 200) {
     .type('application/json')
 }
 
-async function startImport(dataset, sourceType) {
+async function startImport(dataset, sourceType, rebuild = false) {
+  // The parameter is only sent when asked for, so a normal start is byte-for-byte the request it
+  // always was and a rebuild is visible in the URL.
+  const searchParams = { sourceType, dataset }
+
+  if (rebuild) {
+    searchParams.rebuild = 'true'
+  }
+
   return apiRequest('/api/etl/imports', {
     method: 'POST',
-    searchParams: { sourceType, dataset }
+    searchParams
   })
 }
 
@@ -415,13 +423,23 @@ export const etlUploadController = {
  */
 export const etlStartImportController = {
   async handler(request, h) {
-    const { dataset, sourceType: requestedSourceType } = request.payload ?? {}
+    const {
+      dataset,
+      sourceType: requestedSourceType,
+      rebuild
+    } = request.payload ?? {}
     const sourceType = resolveSourceType(requestedSourceType)
+    const rebuilding = rebuild === 'true'
 
-    const result = await startImport(dataset, sourceType)
+    const result = await startImport(dataset, sourceType, rebuilding)
 
     if (result.status === 202 && result.data?.importId) {
-      setFlash(request, `ETL import started against the ${sourceType} source.`)
+      setFlash(
+        request,
+        rebuilding
+          ? `ETL rebuild started against the ${sourceType} source. Every stage was cleared first, so this run takes considerably longer than usual.`
+          : `ETL import started against the ${sourceType} source.`
+      )
       return h.redirect(`/etl/imports/${result.data.importId}`)
     }
 
