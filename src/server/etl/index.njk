@@ -245,6 +245,15 @@
         {{ govukButton({ text: "Purge storage", classes: "govuk-button--warning" }) }}
       </form>
 
+      {# ── Browse ───────────────────────────────────── #}
+      <h2 class="govuk-heading-m">5. Browse stage storage</h2>
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/etl/storage">Report the files in each stage folder</a> — keys,
+        sizes and totals per dataset, for debugging storage growth or checking what a purge would
+        touch.
+      </p>
+
     </div>
   </div>
 

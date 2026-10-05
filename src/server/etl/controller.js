@@ -6,6 +6,12 @@ import { Readable } from 'node:stream'
 const HISTORY_PAGE_SIZE = 10
 
 /**
+ * Objects per page in the stage-storage report; the folder can hold thousands, so the backend is
+ * paged rather than the whole listing being rendered at once.
+ */
+const STORAGE_REPORT_PAGE_SIZE = 100
+
+/**
  * Where a run discovers its files. `internal` is the CDP folder the upload form writes into;
  * `external` is the IBM bucket the legacy sync reads from, configured as
  * `StorageConfiguration.ExternalStorage` on the backend.
@@ -350,6 +356,64 @@ export const etlImportDetailController = {
       etlImport,
       flash: getFlash(request),
       initialData: JSON.stringify({ etlImport })
+    })
+  }
+}
+
+/**
+ * A file/size report over the objects in a stage folder - what is physically there and how much
+ * room it takes, for debugging storage growth or checking what a purge would touch. The backend
+ * pages the listing; the totals and per-dataset groups always cover the whole folder.
+ */
+export const etlStorageReportController = {
+  async handler(request, h) {
+    const { stage, dataset, sourceType, page } = request.query ?? {}
+
+    const requestedStage = stage?.trim().toLowerCase()
+    const selectedStage = PURGE_STAGES.includes(requestedStage)
+      ? requestedStage
+      : 'all'
+    const selectedDataset = dataset?.trim() || 'all'
+    const selectedSourceType = resolveSourceType(sourceType)
+    const skip = pageToSkip(page, STORAGE_REPORT_PAGE_SIZE)
+
+    const [reportResult, datasetsResult] = await Promise.all([
+      apiRequest('/api/etl/storage/objects', {
+        searchParams: {
+          stage: selectedStage,
+          dataset: selectedDataset,
+          sourceType: selectedSourceType,
+          skip,
+          top: STORAGE_REPORT_PAGE_SIZE
+        }
+      }),
+      apiRequest('/api/etl/datasets')
+    ])
+
+    const report = reportResult.ok ? reportResult.data : null
+
+    return h.view('etl/storage', {
+      pageTitle: 'ETL stage storage',
+      heading: 'Stage storage',
+      breadcrumbs: [...breadcrumbs, { text: 'Stage storage' }],
+      report,
+      filters: {
+        stage: selectedStage,
+        dataset: selectedDataset,
+        sourceType: selectedSourceType
+      },
+      datasets: datasetsResult.data?.datasets ?? [],
+      stages: PURGE_STAGES,
+      flash: getFlash(request),
+      pagination: buildPagination(
+        skip,
+        STORAGE_REPORT_PAGE_SIZE,
+        report?.objectCount ?? 0,
+        `/etl/storage?stage=${encodeURIComponent(selectedStage)}&dataset=${encodeURIComponent(selectedDataset)}&sourceType=${encodeURIComponent(selectedSourceType)}`
+      ),
+      apiError: !reportResult.ok
+        ? (reportResult.data?.message ?? 'Failed to load the storage report')
+        : null
     })
   }
 }
