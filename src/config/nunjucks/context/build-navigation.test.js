@@ -16,23 +16,8 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Imports',
-        href: '/import'
-      },
-      {
-        current: false,
-        text: 'Cleanse',
-        href: '/cleanse'
-      },
-      {
-        current: false,
         text: 'ETL',
         href: '/etl'
-      },
-      {
-        current: false,
-        text: 'Cleanse Export',
-        href: '/cleanse-export'
       },
       {
         current: false,
@@ -41,23 +26,13 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Query Data',
-        href: '/query'
-      },
-      {
-        current: false,
-        text: 'Holdings',
-        href: '/holdings'
-      },
-      {
-        current: false,
-        text: 'Throttle Policies',
-        href: '/throttle-policies'
-      },
-      {
-        current: false,
         text: 'External Catalogue',
         href: '/external-catalogue'
+      },
+      {
+        current: false,
+        text: 'Key Rotations',
+        href: '/key-rotations'
       },
       {
         current: false,
@@ -76,23 +51,8 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Imports',
-        href: '/import'
-      },
-      {
-        current: false,
-        text: 'Cleanse',
-        href: '/cleanse'
-      },
-      {
-        current: false,
         text: 'ETL',
         href: '/etl'
-      },
-      {
-        current: false,
-        text: 'Cleanse Export',
-        href: '/cleanse-export'
       },
       {
         current: false,
@@ -101,23 +61,13 @@ describe('#buildNavigation', () => {
       },
       {
         current: false,
-        text: 'Query Data',
-        href: '/query'
-      },
-      {
-        current: false,
-        text: 'Holdings',
-        href: '/holdings'
-      },
-      {
-        current: false,
-        text: 'Throttle Policies',
-        href: '/throttle-policies'
-      },
-      {
-        current: false,
         text: 'External Catalogue',
         href: '/external-catalogue'
+      },
+      {
+        current: false,
+        text: 'Key Rotations',
+        href: '/key-rotations'
       },
       {
         current: false,
@@ -125,5 +75,13 @@ describe('#buildNavigation', () => {
         href: '/backend-health'
       }
     ])
+  })
+
+  test('Should highlight Key Rotations on its pages', () => {
+    const keyRotations = buildNavigation(
+      mockRequest({ path: '/key-rotations' })
+    ).find((item) => item.href === '/key-rotations')
+
+    expect(keyRotations.current).toBe(true)
   })
 })
