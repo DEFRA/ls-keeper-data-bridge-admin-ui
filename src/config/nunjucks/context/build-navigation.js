@@ -6,26 +6,9 @@ export function buildNavigation(request) {
       current: request?.path === '/'
     },
     {
-      text: 'Imports',
-      href: '/import',
-      current: request?.path?.startsWith('/import')
-    },
-    {
-      text: 'Cleanse',
-      href: '/cleanse',
-      current:
-        request?.path?.startsWith('/cleanse') &&
-        !request?.path?.startsWith('/cleanse-export')
-    },
-    {
       text: 'ETL',
       href: '/etl',
       current: request?.path?.startsWith('/etl')
-    },
-    {
-      text: 'Cleanse Export',
-      href: '/cleanse-export',
-      current: request?.path?.startsWith('/cleanse-export')
     },
     {
       text: 'Issues',
@@ -33,24 +16,14 @@ export function buildNavigation(request) {
       current: request?.path?.startsWith('/issues')
     },
     {
-      text: 'Query Data',
-      href: '/query',
-      current: request?.path?.startsWith('/query')
-    },
-    {
-      text: 'Holdings',
-      href: '/holdings',
-      current: request?.path?.startsWith('/holdings')
-    },
-    {
-      text: 'Throttle Policies',
-      href: '/throttle-policies',
-      current: request?.path?.startsWith('/throttle-policies')
-    },
-    {
       text: 'External Catalogue',
       href: '/external-catalogue',
       current: request?.path?.startsWith('/external-catalogue')
+    },
+    {
+      text: 'Key Rotations',
+      href: '/key-rotations',
+      current: request?.path?.startsWith('/key-rotations')
     },
     {
       text: 'Backend Health',

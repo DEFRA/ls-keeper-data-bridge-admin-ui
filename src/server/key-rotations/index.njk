@@ -1,0 +1,81 @@
+{% extends 'layouts/page.njk' %}
+
+{% from "govuk/components/table/macro.njk" import govukTable %}
+{% from "govuk/components/tag/macro.njk" import govukTag %}
+
+{% block content %}
+  {{ appHeading({ text: heading }) }}
+
+  <p class="govuk-body">
+    Successful rotations of the external storage access key, most recent first.
+    The backend checks for a new key file on a daily schedule. Key ids are masked,
+    secrets are never shown, and failed rotation attempts are not listed.
+  </p>
+
+  {% if apiError %}
+    <div class="govuk-error-summary" data-module="govuk-error-summary">
+      <h2 class="govuk-error-summary__title">There is a problem</h2>
+      <div class="govuk-error-summary__body">
+        <p>{{ apiError }}</p>
+      </div>
+    </div>
+  {% elif not rotations.length %}
+    <p class="govuk-body">No key rotations have been recorded.</p>
+  {% else %}
+    {% set rows = [] %}
+    {% for rotation in rotations %}
+      {% if rotation.status === "Active" %}
+        {% set statusTag = govukTag({ text: rotation.status, classes: "govuk-tag--green" }) %}
+      {% else %}
+        {% set statusTag = govukTag({ text: rotation.status, classes: "govuk-tag--grey" }) %}
+      {% endif %}
+      {% set rows = (rows.push([
+        { text: rotation.rotatedAtUtc | formatDate("dd MMM yyyy HH:mm:ss") if rotation.rotatedAtUtc else "—" },
+        { html: statusTag },
+        { text: rotation.source or "—" },
+        { text: rotation.keyIdHint or "—" },
+        { text: rotation.fileKey or "—" },
+        { text: rotation.rolledBackFromId or "—" }
+      ]), rows) %}
+    {% endfor %}
+
+    {{ govukTable({
+      caption: "Key rotations",
+      captionClasses: "govuk-visually-hidden",
+      head: [
+        { text: "Rotated (UTC)" },
+        { text: "Status" },
+        { text: "Source" },
+        { text: "Key id" },
+        { text: "Key file" },
+        { text: "Rolled back from" }
+      ],
+      rows: rows
+    }) }}
+
+    {% if pagination.totalPages > 1 %}
+      <nav class="govuk-pagination" aria-label="Pagination">
+        {% if pagination.currentPage > 1 %}
+          <div class="govuk-pagination__prev">
+            <a class="govuk-link govuk-pagination__link"
+               href="{{ pagination.basePath }}?page={{ pagination.currentPage - 1 }}" rel="prev">
+              <span class="govuk-pagination__link-title">Previous</span>
+            </a>
+          </div>
+        {% endif %}
+        <p class="govuk-body-s govuk-!-margin-bottom-0">
+          Page {{ pagination.currentPage }} of {{ pagination.totalPages }}
+          ({{ pagination.totalCount }} rotations)
+        </p>
+        {% if pagination.currentPage < pagination.totalPages %}
+          <div class="govuk-pagination__next">
+            <a class="govuk-link govuk-pagination__link"
+               href="{{ pagination.basePath }}?page={{ pagination.currentPage + 1 }}" rel="next">
+              <span class="govuk-pagination__link-title">Next</span>
+            </a>
+          </div>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+{% endblock %}
